@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('payables.list_accounts') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Detalle de Cuenta por Pagar
+    </h2>
+    <div>
+        {% if cuenta.estado == 'pagado' %}
+            <span class="badge bg-success shadow-sm p-2 fs-6 me-3"><i class="bi bi-check-circle me-1"></i> Totalmente Pagado</span>
+        {% else %}
+            <span class="badge bg-danger shadow-sm p-2 fs-6 me-3"><i class="bi bi-exclamation-circle me-1"></i> Pendiente</span>
+        {% endif %}
+        
+        {% if cuenta.saldo > 0 %}
+            <a href="{{ url_for('payables.create_payment', cuenta_id=cuenta.id) }}" class="btn btn-primary shadow-sm me-2">
+                <i class="bi bi-cash-coin me-1"></i> Registrar Abono
+            </a>
+        {% endif %}
+        
+        <a href="{{ url_for('purchases.detail_purchase', id=cuenta.compra.id) }}" class="btn btn-secondary shadow-sm">
+            <i class="bi bi-box-seam me-2"></i> Ver Compra
+        </a>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Resumen del Proveedor y Compra -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white pt-4 pb-0 border-0">
+                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-building me-2 text-primary"></i> Información del Proveedor</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">Proveedor:</span>
+                    <span class="fw-bold text-dark">{{ cuenta.proveedor.nombre }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">RNC / Doc:</span>
+                    <span class="fw-medium text-dark">{{ cuenta.proveedor.rnc }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">Contacto:</span>
+                    <span class="fw-medium text-dark">{{ cuenta.proveedor.telefono if cuenta.proveedor.telefono else 'N/A' }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Compra Ref:</span>
+                    <span class="fw-bold text-primary">COMP-{{ "{:05d}".format(cuenta.compra.id) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Financiero -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white pt-4 pb-0 border-0">
+                <h5 class="fw-bold text-success mb-0"><i class="bi bi-calculator me-2"></i> Estado de la Deuda</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">Monto Original Compra:</span>
+                    <span class="fw-bold text-dark fs-5">${{ "{:,.2f}".format(cuenta.monto_total) }}</span>
+                </div>
+                {% set pagos_registrados = cuenta.pagos | sum(attribute='monto') %}
+                {% set sum_pagado = cuenta.monto_total - cuenta.saldo %}
+                {% set pago_inicial = sum_pagado - pagos_registrados %}
+                
+                {% if pago_inicial > 0 %}
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">Pago Inicial (Al comprar):</span>
+                    <span class="fw-medium text-success fs-6">${{ "{:,.2f}".format(pago_inicial) }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <span class="text-muted">Total Abonado (Global):</span>
+                    <span class="fw-bold text-success fs-5">${{ "{:,.2f}".format(sum_pagado) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mt-3 bg-light p-3 rounded-3">
+                    <span class="text-muted fw-bold">SALDO PENDIENTE:</span>
+                    <span class="fw-black text-danger fs-4">${{ "{:,.2f}".format(cuenta.saldo) }}</span>
+                </div>
+                
+                <!-- Progress Bar -->
+                {% set progress = (sum_pagado / cuenta.monto_total * 100) if cuenta.monto_total > 0 else 0 %}
+                <div class="progress mt-4" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress }}%;" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="text-end text-muted small mt-1">{{ "{:.1f}".format(progress) }}% Pagado</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Pagos Realizados -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white pt-4 pb-3">
+        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2 text-warning"></i> Historial de Abonos a Proveedor</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">No. Recibo</th>
+                        <th>Fecha de Abono</th>
+                        <th>Registrado Por</th>
+                        <th class="text-end pe-4">Monto Abonado</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for pago in cuenta.pagos %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-secondary">
+                            REC-P-{{ "{:05d}".format(pago.id) }}
+                        </td>
+                        <td>
+                            <div><i class="bi bi-calendar-event text-muted me-1"></i> {{ pago.fecha.strftime('%d/%m/%Y') }}</div>
+                            <small class="text-muted">{{ pago.fecha.strftime('%H:%M %p') }}</small>
+                        </td>
+                        <td>
+                            <div class="fw-medium text-capitalize"><i class="bi bi-person me-1 text-muted"></i> {{ pago.usuario.nombre }}</div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <strong class="text-success">${{ "{:,.2f}".format(pago.monto) }}</strong>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="bi bi-wallet2 fs-1 d-block mb-3 opacity-50"></i>
+                            Aún no se han registrado abonos a esta cuenta.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .fw-black { font-weight: 900; }
+</style>
+{% endblock %}

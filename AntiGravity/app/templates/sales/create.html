@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('sales.list_sales') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Facturación y Ventas
+    </h2>
+</div>
+
+<form method="POST" action="{{ url_for('sales.create_sale') }}" id="invoiceForm">
+    <!-- Información de encabezado: Cliente y Condiciones de Pago -->
+    <div class="row g-4 mb-4">
+        <!-- Panel Principal -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white pt-4 pb-0 border-0">
+                    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-person-badge me-2"></i> Datos de la Factura</h5>
+                </div>
+                <div class="card-body p-4 row g-3">
+                    <div class="col-md-6">
+                        <label for="cliente_id" class="form-label text-muted small fw-bold text-uppercase">Cliente <span class="text-danger">*</span></label>
+                        <select class="form-select border-start border-4 border-primary" id="cliente_id" name="cliente_id" required>
+                            <option value="" disabled selected>Seleccione un cliente...</option>
+                            {% for cli in clientes %}
+                                <option value="{{ cli.id }}">{{ cli.nombre }} ({{ cli.documento }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if not clientes %}
+                            <div class="form-text text-danger mt-1">No hay clientes. <a href="{{ url_for('clients.create_client') }}">Registrar uno</a>.</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="tipo" class="form-label text-muted small fw-bold text-uppercase">Condición de Venta</label>
+                        <select class="form-select border-start border-4 border-warning" id="tipo" name="tipo" onchange="toggleCreditOptions()">
+                            <option value="contado" selected>Al Contado</option>
+                            <option value="credito">Al Crédito</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="metodo_pago" class="form-label text-muted small fw-bold text-uppercase">Método de Pago</label>
+                        <select class="form-select" id="metodo_pago" name="metodo_pago">
+                            <option value="efectivo" selected>Efectivo</option>
+                            <option value="transferencia">Transferencia Bancaria</option>
+                            <option value="tarjeta">Tarjeta de Crédito / Débito</option>
+                            <option value="cheque">Cheque</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6" id="pago_inicial_container" style="display: none;">
+                        <label for="pago_inicial" class="form-label text-muted small fw-bold text-uppercase">Pago Inicial (Avance)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">$</span>
+                            <input type="number" step="0.01" min="0" class="form-control" id="pago_inicial" name="pago_inicial" value="0.00" oninput="calculateTotals()">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6" id="meses_credito_container" style="display: none;">
+                        <label for="meses_credito" class="form-label text-muted small fw-bold text-uppercase">Meses a Financiar <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" step="1" min="1" class="form-control" id="meses_credito" name="meses_credito" value="1" oninput="calculateTotals()">
+                            <span class="input-group-text bg-white">Meses</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Total Dinámico -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 bg-primary text-white h-100 position-relative overflow-hidden">
+                <i class="bi bi-cart-check position-absolute text-white" style="font-size: 14rem; right: -1rem; bottom: -2rem; opacity: 0.1;"></i>
+                <div class="card-body p-4 d-flex flex-column justify-content-center position-relative z-1">
+                    <div class="d-flex justify-content-between align-items-center mb-2 text-white-50">
+                        <span>Subtotal</span>
+                        <span>$<span id="lbl_subtotal">0.00</span></span>
+                    </div>
+                    <div class="d-none justify-content-between align-items-center mb-2 text-white-50">
+                        <span>ITBIS (Ya en el precio)</span>
+                        <span>+$<span id="lbl_itbis">0.00</span></span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom border-white border-opacity-25 text-white-50">
+                        <span>Descuentos</span>
+                        <span>-$<span id="lbl_descuento_total">0.00</span></span>
+                    </div>
+                    <span class="text-white-50 small text-uppercase fw-bold mb-1">Total a Pagar</span>
+                    <h2 class="display-4 fw-bold mb-0 lh-1 text-end">
+                        $<span id="lbl_total_final">0.00</span>
+                    </h2>
+                    
+                    <div id="credit_summary" class="mt-3 pt-3 border-top border-white border-opacity-25" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center text-white-50 small mb-2">
+                            <span>Balance Restante:</span>
+                            <span class="fw-bold text-white">$<span id="lbl_balance_restante">0.00</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-warning small fw-bold">
+                            <span>Cuota Mensual (Aprox):</span>
+                            <span>$<span id="lbl_cuota_mensual">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de Productos -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center pt-4 pb-3">
+            <h5 class="fw-bold text-success mb-0"><i class="bi bi-boxes me-2"></i> Artículos a Facturar</h5>
+            <button type="button" class="btn btn-sm btn-outline-success shadow-sm" onclick="addProductRow()">
+                <i class="bi bi-plus-lg me-1"></i> Añadir Artículo
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="invoiceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 w-40">Artículo (Vehículo o Parte)</th>
+                            <th class="text-center" style="width: 10%">Cant.</th>
+                            <th class="text-end" style="width: 15%">Precio Unit.</th>
+                            <th class="text-end" style="width: 15%">Descuento</th>
+                            <th class="text-end" style="width: 15%">Total Línea</th>
+                            <th class="text-end pe-4" style="width: 5%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoiceBody">
+                        <!-- Filas añadidas por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-light p-4">
+            <div class="row justify-content-end">
+                <div class="col-md-6 col-lg-4 text-end">
+                    <div class="mb-3 d-flex align-items-center justify-content-between text-muted">
+                        <span class="fw-bold">Descuento Global extra:</span>
+                        <div class="input-group input-group-sm w-50">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" min="0" class="form-control text-end" id="descuento_global" name="descuento_global" value="0.00" oninput="calculateTotals()">
+                        </div>
+                    </div>
+                    <hr>
+                    <button type="button" class="btn btn-primary w-100 shadow-sm py-2 fs-5" id="btnGuardar" onclick="confirmSave()">
+                        <i class="bi bi-file-earmark-check me-2"></i> Procesar Venta
+                    </button>
+                    <!-- Botón de envío real oculto para usar modal de confirmación -->
+                    <button type="submit" id="realSubmitBtn" class="d-none"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-primary text-white border-0">
+        <h5 class="modal-title"><i class="bi bi-shield-check me-2"></i> Confirmar Transacción</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4 text-center">
+        <div class="display-1 text-primary mb-3"><i class="bi bi-receipt"></i></div>
+        <h4>¿Está seguro de procesar esta factura?</h4>
+        <p class="text-muted mb-0">Una vez guardada, afectará el inventario y se generarán los compromisos de pago correspondientes.</p>
+      </div>
+      <div class="modal-footer bg-light border-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Revisar</button>
+        <button type="button" class="btn btn-success px-4" onclick="document.getElementById('realSubmitBtn').click()">
+            <i class="bi bi-check2-circle me-1"></i> Confirmar y Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    const productosData = [
+        {% for p in productos %}
+            { id: {{ p.id }}, moto_id: "{{ p.moto_id }}", tipo: "{{ p.tipo }}", nombre: "{{ p.nombre }}", precio: {{ p.precio }} },
+        {% endfor %}
+    ];
+
+    function toggleCreditOptions() {
+        const tipoSelect = document.getElementById('tipo');
+        const container = document.getElementById('pago_inicial_container');
+        const mesesContainer = document.getElementById('meses_credito_container');
+        const summary = document.getElementById('credit_summary');
+        
+        if (tipoSelect.value === 'credito') {
+            container.style.display = 'block';
+            mesesContainer.style.display = 'block';
+            summary.style.display = 'block';
+        } else {
+            container.style.display = 'none';
+            mesesContainer.style.display = 'none';
+            summary.style.display = 'none';
+            document.getElementById('pago_inicial').value = '0.00';
+            document.getElementById('meses_credito').value = '1';
+        }
+        calculateTotals();
+    }
+
+    function calculateTotals() {
+        let subtotalGlobal = 0;
+        let descuentoLineasGlobal = 0;
+
+        const rows = document.querySelectorAll('#invoiceBody tr');
+        rows.forEach(row => {
+            const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+            const price = parseFloat(row.querySelector('.price-input').value) || 0;
+            const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
+            
+            const lineSubtotal = qty * price;
+            const lineTotal = lineSubtotal - discount;
+            
+            row.querySelector('.line-total-cell').textContent = lineTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            subtotalGlobal += lineSubtotal;
+            descuentoLineasGlobal += discount;
+        });
+
+        const globalDiscount = parseFloat(document.getElementById('descuento_global').value) || 0;
+        const totalDiscount = descuentoLineasGlobal + globalDiscount;
+        // El precio ya trae su ITBIS integrado desde el inventario.
+        const totalFinal = subtotalGlobal - totalDiscount;
+        
+        // Actualizaciones de pantalla
+        const fmt = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('lbl_subtotal').textContent = fmt.format(subtotalGlobal);
+        // lbl_itbis oculto
+        document.getElementById('lbl_descuento_total').textContent = fmt.format(totalDiscount);
+        document.getElementById('lbl_total_final').textContent = fmt.format(totalFinal);
+
+        // Actualización de balance de crédito
+        if (document.getElementById('tipo').value === 'credito') {
+            const pagoInicial = parseFloat(document.getElementById('pago_inicial').value) || 0;
+            const balance = totalFinal - pagoInicial;
+            const finalBalance = balance > 0 ? balance : 0;
+            document.getElementById('lbl_balance_restante').textContent = fmt.format(finalBalance);
+            
+            const meses = parseInt(document.getElementById('meses_credito').value) || 1;
+            const safeMeses = meses > 0 ? meses : 1;
+            const cuotaMensual = finalBalance / safeMeses;
+            document.getElementById('lbl_cuota_mensual').textContent = fmt.format(cuotaMensual);
+        }
+
+        // Validación de acción
+        const btnSave = document.getElementById('btnGuardar');
+        const clientId = document.getElementById('cliente_id').value;
+        if (rows.length === 0 || !clientId || totalFinal < 0) {
+            btnSave.disabled = true;
+        } else {
+            btnSave.disabled = false;
+        }
+    }
+
+    function addProductRow() {
+        const tbody = document.getElementById('invoiceBody');
+        const tr = document.createElement('tr');
+        
+        // Construcción de opciones
+        let options = '<option value="" disabled selected>Buscar artículo...</option>';
+        productosData.forEach(p => {
+            options += `<option value="${p.id}" data-precio="${p.precio}" data-tipo="${p.tipo}" data-motoid="${p.moto_id}">${p.nombre}</option>`;
+        });
+
+        tr.innerHTML = `
+            <td class="ps-4">
+                <input type="hidden" name="motocicleta_id[]" class="moto-id-input" value="">
+                <select class="form-select border-0 border-bottom bg-transparent" name="producto_id[]" required onchange="onProductSelect(this)">
+                    ${options}
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control text-center border-0 bg-light qty-input" name="cantidad[]" value="1" min="1" required oninput="calculateTotals()">
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-transparent border-0 border-bottom">$</span>
+                    <input type="number" step="0.01" class="form-control text-end border-0 border-bottom bg-transparent price-input fw-medium" name="precio[]" value="0.00" min="0" required oninput="calculateTotals()">
+                </div>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-transparent border-0 border-bottom text-danger">$</span>
+                    <input type="number" step="0.01" class="form-control text-end border-0 border-bottom bg-transparent discount-input text-danger" name="descuento_linea[]" value="0.00" min="0" oninput="calculateTotals()">
+                </div>
+            </td>
+            <td class="text-end fw-bold align-middle text-primary">
+                $<span class="line-total-cell">0.00</span>
+            </td>
+            <td class="text-end pe-4 align-middle">
+                <button type="button" class="btn btn-sm text-danger border-0 p-0 hover-opacity" onclick="this.closest('tr').remove(); calculateTotals();">
+                    <i class="bi bi-trash fs-5"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        calculateTotals();
+    }
+
+    function onProductSelect(selectObject) {
+        const row = selectObject.closest('tr');
+        const priceInput = row.querySelector('.price-input');
+        const qtyInput = row.querySelector('.qty-input');
+        const motoIdInput = row.querySelector('.moto-id-input');
+        const selectedOpt = selectObject.options[selectObject.selectedIndex];
+        
+        if (selectedOpt.value) {
+            const motoId = selectedOpt.dataset.motoid;
+            
+            // Validar restricción de moto única
+            if (motoId) {
+                let existe = false;
+                document.querySelectorAll('.moto-id-input').forEach(input => {
+                    if (input !== motoIdInput && input.value === motoId) {
+                        existe = true;
+                    }
+                });
+                
+                if(existe) {
+                    alert("Esta motocicleta ya fue agregada a la factura. El chasis (VIN) es único y no puede duplicarse.");
+                    selectObject.value = ""; // Resetear selección
+                    priceInput.value = "0.00";
+                    motoIdInput.value = "";
+                    qtyInput.value = 1;
+                    qtyInput.readOnly = false;
+                    calculateTotals();
+                    return;
+                }
+            }
+            
+            priceInput.value = parseFloat(selectedOpt.dataset.precio).toFixed(2);
+            motoIdInput.value = motoId;
+            
+            // Si es moto, forzar y bloquear cantidad en 1
+            if (selectedOpt.dataset.tipo === 'moto') {
+                qtyInput.value = 1;
+                qtyInput.readOnly = true;
+            } else {
+                qtyInput.readOnly = false;
+            }
+        }
+        calculateTotals();
+    }
+
+    function confirmSave() {
+        if(document.getElementById('invoiceForm').checkValidity()) {
+            const myModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+            myModal.show();
+        } else {
+            // Forzar visualización de validación del navegador
+            document.getElementById('realSubmitBtn').click();
+        }
+    }
+
+    document.getElementById('cliente_id').addEventListener('change', calculateTotals);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if(productosData.length > 0) {
+            addProductRow();
+        }
+        calculateTotals();
+    });
+</script>
+{% endblock %}

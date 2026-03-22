@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDMAXMOTOIMPORT - Sistema de Gestión de Motocicletas</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+        .sidebar { background-color: #212529; min-height: 100vh; color: #fff; }
+        .sidebar .nav-link { color: rgba(255,255,255,.75); transition: 0.3s; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,.1); border-radius: 5px; }
+        .navbar-brand { font-weight: 700; color: #ffc107 !important; }
+        .content-area { padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- Barra lateral -->
+            <div class="col-md-2 sidebar d-none d-md-block p-3">
+                <a href="{{ url_for('main.dashboard') }}" class="text-decoration-none d-flex flex-column mb-4 mt-2">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bicycle fs-3 text-warning me-2"></i>
+                        <span class="fs-5 text-white fw-bold">DDMAXMOTOIMPORT</span>
+                    </div>
+                    <div class="text-white-50 mt-1 ps-1" style="font-size: 0.75rem; line-height: 1.2;">Sistema de gestión e inventario de motocicletas</div>
+                </a>
+                <hr class="text-secondary">
+                <ul class="nav flex-column gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('main.') %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
+                            <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('clients.') %}active{% endif %}" href="{{ url_for('clients.list_clients') }}">
+                            <i class="bi bi-people me-2"></i> Clientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('inventory.') %}active{% endif %}" href="{{ url_for('inventory.list_motorcycles') }}">
+                            <i class="bi bi-box-seam me-2"></i> Inventario
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('suppliers.') %}active{% endif %}" href="{{ url_for('suppliers.list_suppliers') }}">
+                            <i class="bi bi-truck me-2"></i> Proveedores
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('purchases.') %}active{% endif %}" href="{{ url_for('purchases.list_purchases') }}">
+                            <i class="bi bi-bag-check me-2"></i> Compras
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('sales.') %}active{% endif %}" href="{{ url_for('sales.list_sales') }}">
+                            <i class="bi bi-cart3 me-2"></i> Ventas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('accounts.') %}active{% endif %}" href="{{ url_for('accounts.list_accounts') }}">
+                            <i class="bi bi-cash-coin me-2"></i> Cuentas por Cobrar
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Contenido Principal -->
+            <div class="col-md-10 d-flex flex-column vh-100">
+                <!-- Barra de navegación superior -->
+                <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-4 py-3">
+                    <div class="container-fluid">
+                        <span class="navbar-brand d-md-none text-dark fs-6 fw-bold">DDMAXMOTOIMPORT</span>
+                        <div class="ms-auto d-flex align-items-center">
+                            <span class="me-3 fw-semibold text-secondary">
+                                <i class="bi bi-person-circle me-1"></i> {{ current_user.nombre }}
+                            </span>
+                            <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-box-arrow-right"></i> Salir
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Contenido de la página -->
+                <main class="content-area flex-grow-1 overflow-auto">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm d-print-none" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

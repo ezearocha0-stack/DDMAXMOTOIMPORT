@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-box-seam text-primary me-2"></i>Reporte de Valoración de Inventario
+    </h2>
+    <a href="{{ url_for('inventory.list_motorcycles') }}" class="btn btn-outline-secondary rounded-pill">
+        <i class="bi bi-arrow-left me-1"></i>Volver a Inventario
+    </a>
+</div>
+
+<!-- Tarjetas de Resumen -->
+<div class="row mb-4">
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 rounded-4 bg-gradient text-white" style="background: linear-gradient(135deg, #1f4037 0%, #99f2c8 100%);">
+             <div class="card-body p-4 d-flex align-items-center">
+                <div class="bg-dark bg-opacity-25 rounded-circle p-3 me-3 d-flex align-items-center justify-content-center" style="width: 65px; height: 65px;">
+                    <i class="bi bi-currency-dollar fs-1 text-white"></i>
+                </div>
+                <div>
+                    <p class="text-white small text-uppercase fw-bold mb-1" style="letter-spacing: 1px;">Valor Total del Inventario</p>
+                    <h2 class="fw-bold mb-0 text-dark">${{ "{:,.2f}".format(total_inventario) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Detalles -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 ps-4">
+        <h5 class="fw-bold text-dark mb-0">Detalle por Producto (Ordenado por mayor valor)</h5>
+    </div>
+    <div class="card-body p-0 mt-3">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-4 py-3 border-0">Producto</th>
+                        <th class="py-3 border-0">Categoría</th>
+                        <th class="text-center py-3 border-0">Stock Actual</th>
+                        <th class="text-end py-3 border-0">Costo Unitario</th>
+                        <th class="text-end pe-4 py-3 border-0">Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for item in inventario_valorado %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <!-- TODO: Asegurar que se pase motocicleta.id -->
+                            {% set motocicleta_id = item.producto.motocicleta.id if item.producto.motocicleta else 0 %}
+                            <a href="{{ url_for('inventory.edit_motorcycle', id=motocicleta_id) }}" class="text-decoration-none">
+                                {{ item.producto.nombre }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="text-secondary small">{{ item.producto.categoria.nombre }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1 fw-bold fs-6">
+                                {{ item.producto.stock }}
+                            </span>
+                        </td>
+                        <td class="text-end text-muted fw-medium">
+                            ${{ "{:,.2f}".format(item.producto.costo) }}
+                        </td>
+                        <td class="text-end pe-4 fw-black text-dark fs-6" style="background-color: rgba(0,0,0,0.02);">
+                            ${{ "{:,.2f}".format(item.valor_total) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-box fs-1 text-secondary d-block mb-3 opacity-50"></i>
+                            <h5 class="fw-bold">Inventario Vacío</h5>
+                            <p class="mb-0">No hay productos disponibles para valorar.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<style>
+    .fw-black { font-weight: 900; }
+</style>
+{% endblock %}

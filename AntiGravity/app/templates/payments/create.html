@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        {% if cuenta %}
+        <a href="{{ url_for('accounts.detail_account', id=cuenta.id) }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        {% endif %}
+        Registrar Pago
+    </h2>
+</div>
+
+{% if cuenta %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <!-- Detalles de Cuenta Protegida -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-primary mb-4"><i class="bi bi-person-vcard me-2"></i> Información de la Cuenta</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Cliente</span>
+                        <div class="fs-5 fw-semibold text-dark">{{ cuenta.factura.cliente.nombre }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Documento Asociado</span>
+                        <div class="fs-5 fw-medium text-dark">Factura FAC-{{ "{:05d}".format(cuenta.factura.id) }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Balance Pendiente Actual</span>
+                        <div class="text-danger fw-black fs-4">${{ "{:,.2f}".format(cuenta.saldo) }}</div>
+                    </div>
+                    
+                    {% set next_cuota = cuenta.cuotas|selectattr('estado', 'in', ['pendiente', 'parcial'])|sort(attribute='numero_cuota')|first %}
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Siguiente Cuota Requerida</span>
+                        {% if next_cuota %}
+                            <div class="fw-bold text-warning fs-5">
+                                Cuota #{{ next_cuota.numero_cuota }} 
+                                <span class="badge bg-warning text-dark align-top ms-1">${{ "{:,.2f}".format(next_cuota.monto - next_cuota.monto_pagado) }}</span>
+                            </div>
+                            <div class="small text-muted">Vence: {{ next_cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</div>
+                        {% else %}
+                            <div class="fw-bold text-success fs-5">Sin cuotas pendientes</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo de Cobro -->
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <form action="{{ url_for('payments.create_payment') }}" method="POST">
+                    <input type="hidden" name="cuenta_id" value="{{ cuenta.id }}">
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-uppercase small text-muted">Monto a Recibir ($)</label>
+                        <div class="input-group input-group-lg shadow-sm">
+                            <span class="input-group-text bg-white border-primary text-primary fw-bold"><i class="bi bi-cash-stack"></i></span>
+                            <!-- Se setean valores por defecto dependiendo de la cuota mínima para guiar al cajero sin obligarlo -->
+                            <input type="number" class="form-control border-primary fw-bold fs-4 text-center" 
+                                   name="monto" id="montoInput" step="0.01" min="0.01" max="{{ cuenta.saldo }}" 
+                                   value="{{ (next_cuota.monto - next_cuota.monto_pagado) if next_cuota else cuenta.saldo }}" required>
+                        </div>
+                        <div class="form-text mt-2 text-center text-secondary">
+                            <i class="bi bi-info-circle me-1"></i>
+                            El abono se deducirá automáticamente sobre las cuotas de mayor antigüedad.
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-4 border-top">
+                        <a href="{{ url_for('accounts.detail_account', id=cuenta.id) }}" class="btn btn-outline-secondary rounded-pill px-4">Volver</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm fs-5"><i class="bi bi-check2-circle me-1"></i> Aplicar Abono</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen visual de Cuotas -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white pt-4 pb-3 border-0">
+                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-calendar-check me-2"></i> Estado de Cuotas Mensuales</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for cuota in cuenta.cuotas|sort(attribute='numero_cuota') %}
+                        {% if cuota.estado == 'pagada' %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3 bg-light">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-success text-decoration-line-through">Cuota #{{ cuota.numero_cuota }}</h6>
+                                <small class="text-muted"><i class="bi bi-check2-all"></i> Cubierta</small>
+                            </div>
+                            <span class="fw-medium text-success text-decoration-line-through">${{ "{:,.2f}".format(cuota.monto) }}</span>
+                        </div>
+                        {% elif cuota.estado == 'parcial' %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3 border-start border-4 border-warning">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-warning-emphasis">Cuota #{{ cuota.numero_cuota }}</h6>
+                                <small class="text-secondary">Pagado: ${{ "{:,.2f}".format(cuota.monto_pagado) }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-dark d-block">Restan: ${{ "{:,.2f}".format(cuota.monto - cuota.monto_pagado) }}</span>
+                                <small class="text-muted">Total: ${{ "{:,.2f}".format(cuota.monto) }}</small>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center py-3 border-start border-4 border-primary">
+                            <div>
+                                <h6 class="mb-0 fw-bold text-dark">Cuota #{{ cuota.numero_cuota }}</h6>
+                                <small class="text-danger">Vence: {{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</small>
+                            </div>
+                            <span class="fw-bold text-dark">${{ "{:,.2f}".format(cuota.monto) }}</span>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="p-4 text-center text-muted">
+                            Esta cuenta se facturó a contado o no posee cronograma de amortización detallado. El pago se irá directamente a capital.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- Legacy List Select Fallback (Navegación directa sin cuenta_id) -->
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <form action="{{ url_for('payments.create_payment') }}" method="POST">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Seleccionar Cuenta por Cobrar</label>
+                        <select class="form-select" name="cuenta_id" id="cuentaSelect" required onchange="updateMaxMonto()">
+                            <option value="" disabled {% if not preselected %}selected{% endif %}>Buscando cuenta pendiente...</option>
+                            {% for c in cuentas %}
+                                <option value="{{ c.id }}" data-saldo="{{ c.saldo }}" {% if preselected == c.id %}selected{% endif %}>
+                                    FAC-{{ "{:05d}".format(c.factura_id) }} | {{ c.factura.cliente.nombre }} | Deuda: ${{ "{:,.2f}".format(c.saldo) }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Monto del Abono ($)</label>
+                        <input type="number" class="form-control" name="monto" id="montoInput" step="0.01" min="0.01" disabled required>
+                        <div class="form-text text-muted" id="montoHelp">Seleccione una cuenta para confirmar el saldo disponible.</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-2 border-top">
+                        <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-secondary rounded-pill">Cancelar</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="bi bi-wallet2 me-1"></i> Procesar Pago Global</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateMaxMonto() {
+        const select = document.getElementById('cuentaSelect');
+        const input = document.getElementById('montoInput');
+        const help = document.getElementById('montoHelp');
+        
+        const selectedOpt = select.options[select.selectedIndex];
+        
+        if (selectedOpt && selectedOpt.value) {
+            const saldoStr = selectedOpt.dataset.saldo;
+            input.disabled = false;
+            input.max = saldoStr;
+            help.textContent = `Saldo máximo permitido a pagar: $${parseFloat(saldoStr).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        if (document.getElementById('cuentaSelect').value) {
+            updateMaxMonto();
+        }
+    });
+</script>
+{% endif %}
+<style>
+    .fw-black { font-weight: 900; }
+</style>
+{% endblock %}

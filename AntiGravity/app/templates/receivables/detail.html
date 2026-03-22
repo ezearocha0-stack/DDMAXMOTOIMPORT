@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0 text-dark">
+        <a href="{{ url_for('accounts.list_accounts') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Detalle de Cuenta por Cobrar
+    </h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('sales.detail_sale', id=cuenta.factura.id) }}" class="btn btn-outline-secondary rounded-pill shadow-sm">
+            <i class="bi bi-receipt me-1"></i> Ver Factura Original
+        </a>
+        {% if cuenta.estado != 'pagado' %}
+        <a href="{{ url_for('payments.create_payment', cuenta_id=cuenta.id) }}" class="btn btn-primary rounded-pill shadow-sm">
+            <i class="bi bi-cash-coin me-1"></i> Registrar Pago
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 h-100 rounded-4">
+            <div class="card-header bg-white pt-4 pb-3 border-0">
+                <h5 class="fw-bold text-primary mb-0"><i class="bi bi-info-circle me-2"></i> Información General</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Cliente</span>
+                        <div class="fs-5 fw-semibold text-dark">{{ cuenta.factura.cliente.nombre }}</div>
+                        <div class="text-muted small"><i class="bi bi-person-badge me-1"></i> {{ cuenta.factura.cliente.documento }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Factura Asociada</span>
+                        <div class="fs-5 fw-semibold text-dark">FAC-{{ "{:05d}".format(cuenta.factura.id) }}</div>
+                        <div class="text-muted small"><i class="bi bi-calendar3 me-1"></i> {{ cuenta.factura.fecha.strftime('%d/%m/%Y %H:%M') }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Total Vendido</span>
+                        <div class="fs-5 fw-medium text-dark">${{ "{:,.2f}".format(cuenta.monto_total) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Pago Inicial</span>
+                        <div class="fs-5 fw-medium text-success">${{ "{:,.2f}".format(cuenta.factura.pago_inicial) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted small fw-bold text-uppercase mb-1">Estado de Cuenta</span>
+                        {% if cuenta.estado == 'pagado' %}
+                            <span class="badge bg-success px-3 py-2 rounded-pill shadow-sm">PAGADO COMPLETAMENTE</span>
+                        {% elif cuenta.estado == 'atrasado' %}
+                            <span class="badge bg-danger px-3 py-2 rounded-pill shadow-sm">ATRASADO</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow-sm">PENDIENTE COBRO</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100 rounded-4 {{ 'bg-success text-white' if cuenta.estado == 'pagado' else 'bg-danger text-white' }} overflow-hidden position-relative">
+            <i class="bi bi-wallet2 position-absolute text-white" style="font-size: 10rem; right: -1rem; bottom: -2rem; opacity: 0.1;"></i>
+            <div class="card-body p-4 d-flex flex-column justify-content-center position-relative z-1">
+                <span class="text-white-50 small text-uppercase fw-bold mb-2">Balance Pendiente Actual</span>
+                <h1 class="display-4 fw-bold mb-0 lh-1">
+                    ${{ "{:,.2f}".format(cuenta.saldo) }}
+                </h1>
+                <div class="mt-4 pt-3 border-top border-white border-opacity-25">
+                    <p class="mb-0 small text-white-50">Total Abonado a la Cuenta:</p>
+                    <p class="fs-4 fw-semibold mb-0">${{ "{:,.2f}".format(cuenta.monto_total - cuenta.factura.pago_inicial - cuenta.saldo) }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Tabla de Cuotas -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white d-flex align-items-center pt-4 pb-3 border-0">
+                <i class="bi bi-calendar-check fs-4 text-primary me-2"></i>
+                <h5 class="fw-bold text-dark mb-0">Plan de Cuotas Mensuales</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4 border-0">Num</th>
+                                <th class="border-0">Vencimiento</th>
+                                <th class="text-end border-0">Monto</th>
+                                <th class="text-end pe-4 border-0">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="border-top-0">
+                            {% for cuota in cuenta.cuotas|sort(attribute='numero_cuota') %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-secondary">#{{ cuota.numero_cuota }}</td>
+                                <td>
+                                    <span class="d-block fw-medium">{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</span>
+                                </td>
+                                <td class="text-end fw-semibold text-dark">${{ "{:,.2f}".format(cuota.monto) }}</td>
+                                <td class="text-end pe-4">
+                                    {% if cuota.estado == 'pagada' %}
+                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25">Pagada</span>
+                                    {% elif cuota.estado == 'atrasada' %}
+                                        <span class="badge bg-danger-subtle text-danger border border-danger border-opacity-25">Mora</span>
+                                    {% else %}
+                                        <span class="badge bg-warning-subtle text-dark border border-warning border-opacity-25">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted small">
+                                    No hay cuotas programadas para esta cuenta.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Pagos -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-header bg-white d-flex align-items-center pt-4 pb-3 border-0">
+                <i class="bi bi-receipt-cutoff fs-4 text-success me-2"></i>
+                <h5 class="fw-bold text-dark mb-0">Historial de Recibos de Ingreso</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-4 border-0">Fecha de Pago</th>
+                                <th class="text-center border-0">Cajero</th>
+                                <th class="text-end pe-4 border-0">Monto Recibido</th>
+                            </tr>
+                        </thead>
+                        <tbody class="border-top-0">
+                            {% for pago in cuenta.pagos|sort(attribute='fecha', reverse=true) %}
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="d-block fw-medium text-dark">{{ pago.fecha.strftime('%d/%m/%Y') }}</span>
+                                    <span class="text-muted small"><i class="bi bi-clock"></i> {{ pago.fecha.strftime('%H:%M') }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary opacity-75"><i class="bi bi-person"></i> {{ pago.usuario.usuario }}</span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <span class="fs-6 fw-bold text-success">+${{ "{:,.2f}".format(pago.monto) }}</span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted small">
+                                    <i class="bi bi-info-circle me-1"></i> Aún no se han registrado abonos a esta cuenta.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

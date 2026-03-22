@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Registro de Auditoría</h2>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Fecha y Hora</th>
+                        <th>Usuario (ID)</th>
+                        <th>Objeto / Tabla</th>
+                        <th>ID Registro</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4">{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ log.usuario.nombre if log.usuario else "Sistema" }} ({{ log.usuario_id }})</td>
+                        <td class="text-capitalize">{{ log.tabla }}</td>
+                        <td>{{ log.registro_id }}</td>
+                        <td>
+                            {% if log.accion == 'insertar' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2">Creado</span>
+                            {% elif log.accion == 'actualizar' %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2">Editado</span>
+                            {% elif log.accion == 'eliminar' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2">Eliminado</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ log.accion }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No hay registros de auditoría disponibles.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

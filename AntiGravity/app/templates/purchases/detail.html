@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('purchases.list_purchases') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Detalle de Compra <span class="text-muted ms-2 fs-4">#{{ "{:05d}".format(compra.id) }}</span>
+    </h2>
+    <div>
+        <button class="btn btn-outline-secondary shadow-sm" onclick="window.print()">
+            <i class="bi bi-printer me-2"></i> Imprimir
+        </button>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Información de la Compra -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white pt-4 pb-0 border-0">
+                <h6 class="fw-bold text-muted text-uppercase mb-0">Información del Proveedor</h6>
+            </div>
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3 text-primary">{{ compra.proveedor.nombre if compra.proveedor else 'Proveedor Invalido' }}</h5>
+                
+                <div class="d-flex mb-2">
+                    <i class="bi bi-hash text-muted me-2 mt-1"></i>
+                    <div>
+                        <div class="small text-muted">RNC</div>
+                        <div class="fw-medium">{{ compra.proveedor.rnc if compra.proveedor else 'N/A' }}</div>
+                    </div>
+                </div>
+                <div class="d-flex mb-2">
+                    <i class="bi bi-telephone text-muted me-2 mt-1"></i>
+                    <div>
+                        <div class="small text-muted">Teléfono</div>
+                        <div class="fw-medium">{{ compra.proveedor.telefono if compra.proveedor else 'N/A' }}</div>
+                    </div>
+                </div>
+                <div class="d-flex">
+                    <i class="bi bi-geo-alt text-muted me-2 mt-1"></i>
+                    <div>
+                        <div class="small text-muted">Dirección</div>
+                        <div class="small">{{ compra.proveedor.direccion if compra.proveedor else 'N/A' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información de Resumen -->
+    <div class="col-lg-8">
+        <div class="row g-4 h-100">
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100 bg-light">
+                    <div class="card-body p-4 d-flex flex-column justify-content-center">
+                        <span class="text-muted small text-uppercase fw-bold mb-1">Fecha de Registro</span>
+                        <h4 class="mb-0 fw-medium"><i class="bi bi-calendar-event me-2 text-primary"></i> {{ compra.fecha.strftime('%d/%m/%Y') }}</h4>
+                        <span class="text-muted small mt-1">{{ compra.fecha.strftime('%H:%M %p') }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100 bg-primary text-white position-relative overflow-hidden">
+                    <i class="bi bi-cash-stack position-absolute translate-middle-y text-white opacity-10" style="font-size: 8rem; right: -1rem; top: 50%;"></i>
+                    <div class="card-body p-4 d-flex flex-column justify-content-center position-relative z-1">
+                        <span class="text-white-50 small text-uppercase fw-bold mb-1">Costo Total Compra</span>
+                        <h2 class="display-5 fw-bold mb-0">${{ "{:,.2f}".format(compra.costo_total) }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Artículos -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white pt-4 pb-3 border-bottom">
+        <h5 class="fw-bold text-success mb-0"><i class="bi bi-list-check me-2"></i> Artículos Adquiridos</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Código</th>
+                        <th>Descripción del Producto</th>
+                        <th class="text-center">Cantidad</th>
+                        <th class="text-end">Costo Unit.</th>
+                        <th class="text-end pe-4">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in compra.detalles %}
+                    <tr>
+                        <td class="ps-4 text-muted small">
+                            PROD-{{ "{:04d}".format(item.producto_id) }}
+                        </td>
+                        <td>
+                            <div class="fw-medium">{{ item.producto.nombre if item.producto else 'Producto Desconocido' }}</div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary bg-opacity-10 text-dark px-2 rounded">{{ item.cantidad }}</span>
+                        </td>
+                        <td class="text-end">
+                            ${{ "{:,.2f}".format(item.costo_unitario) }}
+                        </td>
+                        <td class="text-end pe-4 fw-bold text-success">
+                            ${{ "{:,.2f}".format(item.cantidad * item.costo_unitario) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="3"></td>
+                        <td class="text-end fw-bold text-muted">TOTAL:</td>
+                        <td class="text-end pe-4 fw-bold fs-5 text-primary">
+                            ${{ "{:,.2f}".format(compra.costo_total) }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos de Impresión -->
+<style>
+    @media print {
+        body { background-color: #fff; }
+        .sidebar, .navbar, .btn, .alert { display: none !important; }
+        .content-area { padding: 0 !important; overflow: visible !important; }
+        .card { border: none !important; box-shadow: none !important; margin-bottom: 2rem !important; }
+        .card-header { padding-left: 0 !important; padding-right: 0 !important; }
+        .card-body { padding: 0 !important; }
+        .table { width: 100% !important; margin-bottom: 0 !important; }
+        .table th, .table td { border-bottom: 1px solid #dee2e6 !important; }
+        .bg-primary { background-color: #fff !important; color: #000 !important; border: 1px solid #dee2e6 !important; }
+        .bg-light { background-color: #fff !important; border: 1px solid #dee2e6 !important; }
+        .text-white { color: #000 !important; }
+        .text-white-50 { color: #6c757d !important; }
+        .badge { display: inline-block; padding: 0.25em 0.4em; font-size: 75%; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.25rem; border: 1px solid #000; color: #000 !important; background-color: transparent !important;}
+        h2.display-5 { font-size: 2rem; color: #000 !important; }
+    }
+</style>
+{% endblock %}

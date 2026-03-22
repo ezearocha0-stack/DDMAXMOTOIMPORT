@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('clients.list_clients') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Perfil de Cliente
+    </h2>
+    <div class="btn-group">
+        <a href="{{ url_for('clients.edit_client', id=cliente.id) }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-pencil me-2"></i> Editar Perfil
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Columna Izquierda: Información Principal -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center p-4">
+                <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center text-primary mb-3" style="width: 80px; height: 80px;">
+                    <i class="bi bi-person-fill" style="font-size: 2.5rem;"></i>
+                </div>
+                <h4 class="fw-bold mb-1">{{ cliente.nombre }}</h4>
+                <p class="text-muted mb-3">{{ cliente.documento }}</p>
+                <span class="badge {{ 'bg-info' if cliente.tipo == 'fisico' else 'bg-secondary' }} px-3 py-2 rounded-pill mb-4">
+                    {{ cliente.tipo|capitalize }}
+                </span>
+                
+                <hr class="text-muted opacity-25">
+                
+                <div class="text-start mt-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-telephone fs-5 text-muted me-3"></i>
+                        <div>
+                            <div class="small text-muted">Teléfono</div>
+                            <div class="fw-medium">{{ cliente.telefono or 'No registrado' }}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-start mb-3">
+                        <i class="bi bi-geo-alt fs-5 text-muted me-3 mt-1"></i>
+                        <div>
+                            <div class="small text-muted">Dirección</div>
+                            <div class="fw-medium">{{ cliente.direccion or 'No registrada' }}</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar3 fs-5 text-muted me-3"></i>
+                        <div>
+                            <div class="small text-muted">Fecha de Registro</div>
+                            <div class="fw-medium">{{ cliente.created_at.strftime('%d/%m/%Y') if cliente.created_at else 'N/A' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Detalles y Garante -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 mb-4 h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                <h5 class="fw-bold text-success mb-0"><i class="bi bi-shield-check me-2"></i> Información del Garante</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if cliente.nombre_garante or cliente.documento_garante %}
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <span class="small text-muted d-block mb-1">Nombre Completo</span>
+                                <span class="fw-semibold">{{ cliente.nombre_garante or 'N/A' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <span class="small text-muted d-block mb-1">Documento</span>
+                                <span class="fw-semibold">{{ cliente.documento_garante or 'N/A' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <span class="small text-muted d-block mb-1">Teléfono</span>
+                                <span class="fw-semibold">{{ cliente.telefono_garante or 'N/A' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <span class="small text-muted d-block mb-1">Dirección</span>
+                                <span class="fw-semibold">{{ cliente.direccion_garante or 'N/A' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-person-x fs-1 d-block mb-3 text-light"></i>
+                        Este cliente no tiene información de garante registrada.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

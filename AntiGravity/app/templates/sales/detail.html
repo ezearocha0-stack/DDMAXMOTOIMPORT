@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-print-none d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('sales.list_sales') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        Comprobante de Ingreso <span class="text-muted ms-2 fs-4">FAC-{{ "{:05d}".format(factura.id) }}</span>
+    </h2>
+    <div>
+        {% if factura.estado == 'completada' %}
+            <span class="badge bg-success shadow-sm p-2 fs-6 me-3"><i class="bi bi-check-circle me-1"></i> Completada</span>
+        {% elif factura.estado == 'pagada' %}
+            <span class="badge bg-success shadow-sm p-2 fs-6 me-3"><i class="bi bi-check-all me-1"></i> Pagada en su Totalidad</span>
+        {% elif factura.estado == 'anulada' %}
+            <span class="badge bg-danger shadow-sm p-2 fs-6 me-3"><i class="bi bi-x-circle me-1"></i> Anulada</span>
+        {% elif factura.estado == 'dev. parcial' %}
+            <span class="badge bg-info text-dark shadow-sm p-2 fs-6 me-3"><i class="bi bi-arrow-return-left me-1"></i> Dev. Parcial</span>
+        {% else %}
+            <span class="badge bg-warning text-dark shadow-sm p-2 fs-6 me-3"><i class="bi bi-hourglass-split me-1"></i> Pago Pendiente</span>
+        {% endif %}
+        
+        {% if factura.tipo == 'credito' and factura.cuenta_por_cobrar and factura.cuenta_por_cobrar.saldo > 0 and factura.estado != 'anulada' %}
+            <a href="{{ url_for('payments.create_payment', cuenta_id=factura.cuenta_por_cobrar.id) }}" class="btn btn-primary shadow-sm me-2 d-print-none">
+                <i class="bi bi-cash-coin me-1"></i> Registrar Pago
+            </a>
+        {% endif %}
+        
+        <button type="button" class="btn btn-warning shadow-sm me-2 d-print-none" data-bs-toggle="modal" data-bs-target="#devolucionModal">
+            <i class="bi bi-arrow-return-left me-1"></i> Registrar Devolución
+        </button>
+        <button class="btn btn-secondary shadow-sm" onclick="window.print()">
+            <i class="bi bi-printer me-2"></i> Imprimir Factura
+        </button>
+    </div>
+</div>
+
+<div class="invoice-container bg-white p-5 rounded-4 shadow-sm border mb-4">
+    <!-- Encabezado -->
+    <div class="row border-bottom pb-4 mb-4">
+        <div class="col-sm-6">
+            <h1 class="fw-black text-primary mb-0" style="letter-spacing: -1px;">DDMAX<span class="text-dark">MOTO</span></h1>
+            <p class="text-muted small mb-0">RNC: 130-1923010 | Av. Principal, Sto Dgo</p>
+        </div>
+        <div class="col-sm-6 text-sm-end mt-3 mt-sm-0">
+            <h3 class="text-muted mb-1 text-uppercase fw-bold">Factura</h3>
+            <p class="mb-0 fw-medium">No. FAC-{{ "{:05d}".format(factura.id) }}</p>
+            <p class="mb-0 text-muted small">Fecha: {{ factura.fecha.strftime('%d/%m/%Y %H:%M') }}</p>
+        </div>
+    </div>
+
+    <!-- Datos del Cliente y Venta -->
+    <div class="row mb-5 g-4">
+        <div class="col-sm-6 p-4 bg-light rounded-3 ms-3" style="width: calc(50% - 1rem)">
+            <p class="text-uppercase text-muted small fw-bold mb-3 ls-1">Cobrar a:</p>
+            <h5 class="fw-bold mb-1">{{ factura.cliente.nombre }}</h5>
+            <div class="d-flex text-muted small mb-1 align-items-center">
+                <i class="bi bi-person-vcard me-2"></i> Doc: {{ factura.cliente.documento }}
+            </div>
+            {% if factura.cliente.telefono %}
+            <div class="d-flex text-muted small mb-1 align-items-center">
+                <i class="bi bi-telephone me-2"></i> {{ factura.cliente.telefono }}
+            </div>
+            {% endif %}
+            <div class="d-flex text-muted small align-items-start">
+                <i class="bi bi-geo-alt me-2 mt-1"></i> {{ factura.cliente.direccion }}
+            </div>
+        </div>
+
+        <div class="col-sm-6 ps-sm-5 ms-sm-2" style="width: calc(50% - 1rem)">
+            <table class="table table-borderless table-sm mb-0">
+                <tbody>
+                    <tr>
+                        <td class="text-muted small fw-bold text-uppercase w-50">Condición:</td>
+                        <td class="text-end fw-medium text-capitalize">{{ factura.tipo }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted small fw-bold text-uppercase">Método Pago:</td>
+                        <td class="text-end fw-medium text-capitalize">{{ factura.metodo_pago }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted small fw-bold text-uppercase">Registrado Por:</td>
+                        <td class="text-end fw-medium text-capitalize">{{ factura.usuario.nombre if factura.usuario else 'Admin' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Artículos -->
+    <div class="table-responsive mb-4">
+        <table class="table invoice-table">
+            <thead class="bg-primary text-white">
+                <tr>
+                    <th class="ps-3 border-0 py-3 rounded-start">Descripción del Artículo</th>
+                    <th class="text-center border-0 py-3">Cant.</th>
+                    <th class="text-end border-0 py-3">P. Unitario</th>
+                    <th class="text-end border-0 py-3">Desct.</th>
+                    <th class="text-end pe-3 border-0 py-3 rounded-end">Importe</th>
+                </tr>
+            </thead>
+            <tbody class="border-top-0">
+                {% for item in factura.detalles %}
+                <tr class="align-middle">
+                    <td class="ps-3 py-3">
+                        <span class="fw-bold text-dark d-block">
+                            {% if item.motocicleta %}
+                                MOTO: {{ item.motocicleta.marca }} {{ item.motocicleta.modelo }} (VIN: {{ item.motocicleta.vin }})
+                            {% else %}
+                                {{ item.producto.nombre if item.producto else 'Artículo Desconocido' }}
+                            {% endif %}
+                        </span>
+                        <span class="text-muted small">Cod: PROD-{{ "{:04d}".format(item.producto.id) if item.producto else '0000' }}</span>
+                    </td>
+                    <td class="text-center py-3">{{ item.cantidad }}</td>
+                    <td class="text-end py-3">${{ "{:,.2f}".format(item.precio_unitario) }}</td>
+                    <td class="text-end py-3 text-danger">
+                        {% if item.descuento > 0 %}-${{ "{:,.2f}".format(item.descuento) }}{% else %}-{% endif %}
+                    </td>
+                    <td class="text-end pe-3 fw-bold text-success py-3">
+                        ${{ "{:,.2f}".format((item.cantidad * item.precio_unitario) - item.descuento) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Área de Totales -->
+    <div class="row justify-content-end mb-4">
+        <div class="col-sm-6 col-lg-5">
+            <table class="table table-borderless table-sm">
+                <tbody>
+                    <tr>
+                        <td class="text-muted">Subtotal Bruto</td>
+                        <td class="text-end fw-medium">${{ "{:,.2f}".format(factura.subtotal) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">ITBIS</td>
+                        <td class="text-end fw-medium">${{ "{:,.2f}".format(factura.itbis) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Desc. Aplicados</td>
+                        <td class="text-end text-danger fw-medium">-${{ "{:,.2f}".format(desc_total) }}</td>
+                    </tr>
+                    <tr class="border-top border-dark border-opacity-25">
+                        <td class="py-3"><h5 class="fw-bold text-dark mb-0 text-uppercase">Total Neto</h5></td>
+                        <td class="text-end py-3"><h3 class="fw-black text-primary mb-0">${{ "{:,.2f}".format(factura.total) }}</h3></td>
+                    </tr>
+                    
+                    {% if factura.tipo == 'credito' %}
+                    <tr>
+                        <td class="text-muted pb-0">Pago Inicial Realizado</td>
+                        <td class="text-end fw-medium text-success pb-0">${{ "{:,.2f}".format(factura.pago_inicial) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted pt-1">Balance Pendiente</td>
+                        {% set bal_restante = factura.total - factura.pago_inicial %}
+                        <td class="text-end fw-bold text-danger pt-1">${{ "{:,.2f}".format(bal_restante) }}</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pie de página -->
+    <div class="text-center text-muted small pt-4 border-top">
+        <p class="mb-1 fw-bold">¡Gracias por preferir DDMAXMOTOIMPORT!</p>
+        <p class="mb-0">Los vehículos vendidos no tienen devolución. Ciertas restricciones aplican para piezas electrónicas.</p>
+    </div>
+</div>
+
+<style>
+    .fw-black { font-weight: 900; }
+    .ls-1 { letter-spacing: 1px; }
+    .invoice-table th { font-weight: 600; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;}
+    .invoice-table td { border-bottom: 1px solid rgba(0,0,0,0.05); }
+    
+    @media print {
+        body { background-color: white !important; }
+        .sidebar, .navbar { display: none !important; }
+        .content-area { padding: 0 !important; width: 100% !important; margin: 0 !important; }
+        .invoice-container { box-shadow: none !important; border: none !important; margin-bottom: 0 !important; padding: 0 !important; }
+        .btn, .d-print-none { display: none !important; }
+        /* Preservar color en la impresión */
+        .bg-primary { background-color: #0d6efd !important; -webkit-print-color-adjust: exact; color: white !important; }
+        .text-primary { color: #0d6efd !important; -webkit-print-color-adjust: exact; }
+        .bg-light { background-color: #f8f9fa !important; -webkit-print-color-adjust: exact; }
+        .badge { border: 1px solid #dee2e6; color: #212529 !important; background: transparent !important;}
+        td.text-danger { color: #dc3545 !important; -webkit-print-color-adjust: exact; }
+    }
+</style>
+
+<!-- Modal de Devolución -->
+<div class="modal fade" id="devolucionModal" tabindex="-1" aria-labelledby="devolucionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title text-dark fw-bold" id="devolucionModalLabel"><i class="bi bi-arrow-return-left me-2"></i>Registrar Devolución</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('sales.return_sale', id=factura.id) }}" method="POST">
+          <div class="modal-body">
+            <p class="text-muted small">Seleccione los artículos que el cliente desea devolver. Los mismos retornarán al inventario y se generará un comprobante de saldo devolutivo.</p>
+            
+            <div class="mb-3">
+                <label class="form-label fw-bold small">Motivo de Devolución</label>
+                <textarea class="form-control" name="motivo" rows="2" required placeholder="Ej. Cliente solicitó cambio por defecto de fábrica..."></textarea>
+            </div>
+            
+            <h6 class="fw-bold mt-4 mb-3 border-bottom pb-2">Artículos de la Factura</h6>
+            <div class="list-group">
+                {% for item in factura.detalles %}
+                {% set fue_devuelta = item.motocicleta and item.motocicleta.estado != 'vendida' %}
+                <label class="list-group-item d-flex justify-content-between align-items-center list-group-item-action {% if fue_devuelta %}bg-light opacity-50 pe-none{% endif %}">
+                    <div class="d-flex align-items-center">
+                        <input class="form-check-input me-3" type="checkbox" name="detalle_ids[]" value="{{ item.id }}" {% if fue_devuelta %}disabled{% endif %}>
+                        <div>
+                            {% if item.motocicleta %}
+                                <span class="fw-bold d-block">MOTO: {{ item.motocicleta.marca }} {{ item.motocicleta.modelo }}</span>
+                                <span class="badge bg-secondary">VIN: {{ item.motocicleta.vin }}</span>
+                                {% if fue_devuelta %}
+                                    <span class="badge bg-danger ms-1">⚠ Ya procesada/devuelta</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="fw-bold d-block">{{ item.producto.nombre if item.producto else 'Artículo' }}</span>
+                                <span class="text-muted small">Cant. facturada: {{ item.cantidad }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="fw-bold text-success">
+                        ${{ "{:,.2f}".format((item.precio_unitario * item.cantidad) - item.descuento) }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-warning fw-bold"><i class="bi bi-check-circle me-1"></i> Confirmar Devolución</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

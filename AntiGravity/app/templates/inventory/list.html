@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Inventario de Motocicletas</h2>
+    <a href="{{ url_for('inventory.create_motorcycle') }}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-plus-circle me-2"></i> Nueva Motocicleta
+    </a>
+</div>
+
+<!-- Barra de Búsqueda -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('inventory.list_motorcycles') }}" class="d-flex w-100">
+            <div class="input-group">
+                <span class="input-group-text bg-white text-muted border-end-0">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" class="form-control border-start-0 ps-0" name="search" placeholder="Buscar por marca, modelo o VIN..." value="{{ search }}">
+                <button class="btn btn-outline-secondary px-4" type="submit">Buscar</button>
+                {% if search %}
+                <a href="{{ url_for('inventory.list_motorcycles') }}" class="btn btn-outline-danger">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de Motocicletas -->
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Motocicleta</th>
+                        <th>VIN</th>
+                        <th>Año</th>
+                        <th>Color</th>
+                        <th>Precio</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for moto in motocicletas %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center text-primary me-3" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-bicycle fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ moto.marca }} {{ moto.modelo }}</div>
+                                    <div class="text-muted small">Cód: {{ moto.producto_id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="text-secondary fw-medium">{{ moto.vin }}</span>
+                        </td>
+                        <td>{{ moto.año }}</td>
+                        <td>{{ moto.color or '-' }}</td>
+                        <td>
+                            <strong class="text-success">${{ "{:,.2f}".format(moto.producto.precio) if moto.producto else '0.00' }}</strong>
+                        </td>
+                        <td>
+                            {% if moto.estado == 'en inventario' %}
+                                <span class="badge bg-success bg-opacity-10 text-success px-3 rounded-pill">En Inventario</span>
+                            {% elif moto.estado == 'vendida' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger px-3 rounded-pill">Vendida</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning px-3 rounded-pill">{{ moto.estado|capitalize }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('inventory.detail_motorcycle', id=moto.id) }}" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" title="Ver Detalles">
+                                    <i class="bi bi-journal-text"></i>
+                                </a>
+                                <a href="{{ url_for('inventory.edit_motorcycle', id=moto.id) }}" class="btn btn-sm btn-outline-warning" data-bs-toggle="tooltip" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ moto.id }}" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+
+                            <!-- Modal de Eliminación -->
+                            <div class="modal fade text-start" id="deleteModal{{ moto.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header border-bottom-0">
+                                            <h5 class="modal-title fw-bold text-danger">
+                                                <i class="bi bi-exclamation-triangle me-2"></i> Confirmar Eliminación
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>¿Está seguro que desea eliminar la motocicleta <strong>{{ moto.marca }} {{ moto.modelo }}</strong> (VIN: {{ moto.vin }})?</p>
+                                        </div>
+                                        <div class="modal-footer border-top-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                                            <form action="{{ url_for('inventory.delete_motorcycle', id=moto.id) }}" method="POST">
+                                                <button type="submit" class="btn btn-danger">Sí, Eliminar</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                            {% if search %}
+                                No se encontraron motocicletas que coincidan con "{{ search }}".
+                            {% else %}
+                                Inventario vacío. Comience agregando una motocicleta.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

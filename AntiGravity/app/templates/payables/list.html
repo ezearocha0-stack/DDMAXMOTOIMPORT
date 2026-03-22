@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-wallet-fill text-danger me-2"></i>Cuentas por Pagar</h2>
+</div>
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+                    <tr>
+                        <th class="ps-4 py-3 border-0">Compra</th>
+                        <th class="py-3 border-0">Proveedor</th>
+                        <th class="py-3 border-0">Fecha de Compra</th>
+                        <th class="text-end py-3 border-0">Total</th>
+                        <th class="text-end py-3 border-0">Monto Pagado</th>
+                        <th class="text-end py-3 border-0">Balance Pendiente</th>
+                        <th class="text-center pe-4 py-3 border-0">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for cuenta in cuentas %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <a href="{{ url_for('payables.detail_account', id=cuenta.id) }}" class="text-decoration-none">
+                                COMP-{{ "{:05d}".format(cuenta.compra.id) }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="d-block fw-semibold text-dark">{{ cuenta.proveedor.nombre }}</span>
+                            <span class="text-muted small">RNC: {{ cuenta.proveedor.rnc }}</span>
+                        </td>
+                        <td class="text-muted"><i class="bi bi-calendar3 me-1"></i> {{ cuenta.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="text-end text-muted">${{ "{:,.2f}".format(cuenta.monto_total) }}</td>
+                        {% set pagado = cuenta.monto_total - cuenta.saldo %}
+                        <td class="text-end text-success fw-medium">${{ "{:,.2f}".format(pagado) }}</td>
+                        <td class="text-end fw-black text-danger fs-5">${{ "{:,.2f}".format(cuenta.saldo) }}</td>
+                        <td class="text-center pe-4">
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('payables.detail_account', id=cuenta.id) }}" class="btn btn-sm btn-outline-primary shadow-sm" title="Ver Detalles">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('payables.create_payment', cuenta_id=cuenta.id) }}" class="btn btn-sm btn-primary shadow-sm" title="Registrar Pago">
+                                    <i class="bi bi-cash-coin"></i> Pago
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-check2-circle fs-1 text-success d-block mb-3 opacity-75"></i>
+                            <h5 class="fw-bold">Carpeta Limpia</h5>
+                            <p class="mb-0">No hay cuentas por pagar pendientes. ¡Excelente!</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<style>
+    .fw-black { font-weight: 900; }
+</style>
+{% endblock %}
