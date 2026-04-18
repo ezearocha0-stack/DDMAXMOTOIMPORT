@@ -81,9 +81,11 @@
                                 <a href="{{ url_for('inventory.edit_motorcycle', id=moto.id) }}" class="btn btn-sm btn-outline-warning" data-bs-toggle="tooltip" title="Editar">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                {% if current_user.is_authenticated and current_user.rol.nombre|upper == 'ADMIN' %}
                                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ moto.id }}" title="Eliminar">
                                     <i class="bi bi-trash"></i>
                                 </button>
+                                {% endif %}
                             </div>
 
                             <!-- Modal de Eliminación -->

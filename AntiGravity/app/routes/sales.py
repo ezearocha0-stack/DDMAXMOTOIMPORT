@@ -4,13 +4,21 @@ from app.models.entities import Clientes, Productos, Motocicletas
 from app.models.transactions import Facturas, DetalleFactura
 from datetime import datetime
 from decimal import Decimal
+from sqlalchemy.orm import joinedload
 
 sales_bp = Blueprint('sales', __name__, url_prefix='/sales')
 
 @sales_bp.route('/')
 def list_sales():
-    facturas = Facturas.query.order_by(Facturas.fecha.desc()).all()
-    return render_template('sales/list.html', facturas=facturas)
+    estado = request.args.get('estado', 'pendientes')
+    
+    query = Facturas.query
+    if estado == 'pendientes':
+        query = query.filter(Facturas.estado != 'anulada')
+    elif estado == 'anuladas':
+        query = query.filter(Facturas.estado == 'anulada')
+    facturas = query.options(joinedload(Facturas.cliente)).order_by(Facturas.fecha.desc()).all()
+    return render_template('sales/list.html', facturas=facturas, estado_actual=estado)
 
 @sales_bp.route('/create', methods=['GET', 'POST'])
 def create_sale():
@@ -20,10 +28,10 @@ def create_sale():
         metodo_pago = request.form.get('metodo_pago', 'efectivo')
         descuento_global = Decimal(request.form.get('descuento_global') or '0.0')
         pago_inicial = Decimal(request.form.get('pago_inicial') or '0.0')
+        tasa_interes_mensual = Decimal(request.form.get('tasa_interes_mensual') or '0.0')
 
         # líneas dinámicas
         producto_ids = request.form.getlist('producto_id[]')
-        motocicleta_ids = request.form.getlist('motocicleta_id[]')
         cantidades = request.form.getlist('cantidad[]')
         precios = request.form.getlist('precio[]')
         descuentos_linea = request.form.getlist('descuento_linea[]')
@@ -36,8 +44,8 @@ def create_sale():
             flash('La factura debe tener al menos un producto.', 'danger')
             return redirect(url_for('sales.create_sale'))
 
-        if descuento_global < 0 or pago_inicial < 0:
-            flash('Los descuentos globales y pagos iniciales no pueden ser negativos.', 'danger')
+        if descuento_global < 0 or pago_inicial < 0 or tasa_interes_mensual < 0:
+            flash('Los descuentos globales, pagos iniciales y tasas de interés no pueden ser negativos.', 'danger')
             return redirect(url_for('sales.create_sale'))
 
         try:
@@ -48,23 +56,20 @@ def create_sale():
                 tipo=tipo,
                 metodo_pago=metodo_pago,
                 subtotal=Decimal('0.0'),
-                itbis=Decimal('0.0'),
                 descuento=descuento_global,
                 total=Decimal('0.0'),
                 pago_inicial=pago_inicial,
-                estado='completada' if tipo == 'contado' else 'pendiente'
+                estado='pagada' if tipo == 'contado' else 'pendiente'
             )
             db.session.add(nueva_factura)
             db.session.flush()
 
             subtotal_calculado = Decimal('0.0')
-            itbis_calculado = Decimal('0.0')
             moto_ids_agregadas = set()
             
             # Crear detalles de factura
             for i in range(len(producto_ids)):
                 prod_id = producto_ids[i]
-                moto_id_str = motocicleta_ids[i] if i < len(motocicleta_ids) else ""
                 cant = int(cantidades[i])
                 precio_u = Decimal(precios[i])
                 desc_lin = Decimal(descuentos_linea[i] or '0.0')
@@ -74,47 +79,45 @@ def create_sale():
                     flash('Las cantidades deben ser mayores a cero. Precios y descuentos no pueden ser negativos.', 'danger')
                     return redirect(url_for('sales.create_sale'))
                 
-                # Validar motocicletas
-                moto_real_id = None
-                itbis_linea = Decimal('0.0')
-                if moto_id_str:
-                    moto_real_id = int(moto_id_str)
+                producto = Productos.query.get(prod_id)
+                if not producto:
+                    db.session.rollback()
+                    flash(f'Error: Producto desconocido.', 'danger')
+                    return redirect(url_for('sales.create_sale'))
                     
-                    if moto_real_id in moto_ids_agregadas:
+                if producto.motocicleta:
+                    if prod_id in moto_ids_agregadas:
                         db.session.rollback()
                         flash('Error: No puede incluir la misma motocicleta más de una vez en la factura (VIN Único).', 'danger')
                         return redirect(url_for('sales.create_sale'))
+                    moto_ids_agregadas.add(prod_id)
                     
-                    moto_ids_agregadas.add(moto_real_id)
                     
-                    moto = Motocicletas.query.get(moto_real_id)
-                    if not moto or moto.estado != 'en inventario':
+                    if producto.motocicleta.estado != 'en inventario':
                         db.session.rollback()
                         flash('Error: Una motocicleta seleccionada ya no está disponible.', 'danger')
                         return redirect(url_for('sales.create_sale'))
-                    cant = 1 # Forzar cantidad a 1 para motos
-                    moto.estado = 'vendida'
-                    itbis_linea = cant * Decimal(str(moto.producto.itbis or '0.0'))
+                    
+                    cant = 1
+                    producto.motocicleta.estado = 'vendida'
                 else:
-                    # Producto regular: verificar y deducir stock
-                    producto = Productos.query.get(prod_id)
-                    if not producto or producto.stock < cant:
+                    if cant > producto.stock:
                         db.session.rollback()
-                        flash(f'Error: Stock insuficiente para {producto.nombre if producto else "producto desconocido"}.', 'danger')
+                        flash(f'Error: Stock insuficiente para {producto.nombre}. Disp: {producto.stock}', 'danger')
                         return redirect(url_for('sales.create_sale'))
+                    
                     producto.stock -= cant
-                    itbis_linea = cant * Decimal(str(producto.itbis or '0.0'))
+                    if producto.stock <= 0:
+                        producto.estado = 'agotado'
                 
                 line_total_before_discount = cant * precio_u
                 line_total = line_total_before_discount - desc_lin
                 
                 subtotal_calculado += line_total_before_discount
-                itbis_calculado += itbis_linea
 
                 detalle = DetalleFactura(
                     factura_id=nueva_factura.id,
                     producto_id=prod_id,
-                    motocicleta_id=moto_real_id,
                     cantidad=cant,
                     precio_unitario=precio_u,
                     descuento=desc_lin
@@ -129,8 +132,6 @@ def create_sale():
             total_descuento_lineas = sum([Decimal(d or '0.0') for d in descuentos_linea])
             total_descuentos = total_descuento_lineas + descuento_global
             
-            # En la nueva lógica el precio unitario YA INCLUYE el ITBIS.
-            # Por lo tanto subtotal_calculado es igual al monto bruto total.
             total_final = subtotal_calculado - total_descuentos
             
             if pago_inicial > total_final:
@@ -139,7 +140,6 @@ def create_sale():
                 return redirect(url_for('sales.create_sale'))
 
             nueva_factura.subtotal = subtotal_calculado
-            nueva_factura.itbis = itbis_calculado
             nueva_factura.total = total_final
             
             # Si es crédito, generar cuentas por cobrar
@@ -153,20 +153,30 @@ def create_sale():
                     meses_credito = 1
                     
                 from app.models.finance import CuentasPorCobrar, Cuotas
-                balance_restante = total_final - pago_inicial
+                saldo_base = total_final - pago_inicial
+                if saldo_base < 0:
+                    saldo_base = Decimal('0.0')
+                
+                interes_total = Decimal('0.0')
+                if saldo_base > 0 and tasa_interes_mensual > 0:
+                    interes_total = saldo_base * (tasa_interes_mensual / Decimal('100.0')) * Decimal(str(meses_credito))
+                
+                interes_total = interes_total.quantize(Decimal('0.01'))
+                total_financiado = saldo_base + interes_total
                 
                 cxc = CuentasPorCobrar(
                     factura_id=nueva_factura.id,
-                    monto_total=total_final,
-                    saldo=balance_restante,
-                    estado='pendiente' if balance_restante > 0 else 'pagado'
+                    monto_total=total_final + interes_total,
+                    saldo=total_financiado,
+                    estado='pendiente' if total_financiado > 0 else 'pagado'
                 )
                 db.session.add(cxc)
                 db.session.flush() # Obtener cx.id para las cuotas
                 
                 # Generar las cuotas automáticamente
-                if balance_restante > 0:
-                    monto_cuota = balance_restante / Decimal(str(meses_credito))
+                if total_financiado > 0:
+                    monto_cuota = total_financiado / Decimal(str(meses_credito))
+                    monto_cuota = monto_cuota.quantize(Decimal('0.01'))
                     
                     from calendar import monthrange
                     def add_months(sourcedate, months):
@@ -191,23 +201,18 @@ def create_sale():
                         )
                         db.session.add(cuota)
 
-            # --- NUEVA LÓGICA: MovimientosCaja ---
-            monto_ingreso = Decimal('0.0')
-            if tipo == 'contado':
-                monto_ingreso = total_final
-            elif tipo == 'credito' and pago_inicial > 0:
-                monto_ingreso = pago_inicial
-                
-            if monto_ingreso > 0:
-                from app.models.finance import MovimientosCaja
-                from flask_login import current_user
-                movimiento = MovimientosCaja(
-                    usuario_id=current_user.id if current_user.is_authenticated else 1,
-                    tipo_movimiento='ingreso',
-                    monto=monto_ingreso,
-                    concepto=f'Venta {"al contado" if tipo == "contado" else "a crédito (pago inicial)"} - Factura #{nueva_factura.id}'
-                )
-                db.session.add(movimiento)
+
+
+            # Auditoría
+            from app.models.auth import Auditoria
+            from flask_login import current_user
+            audit_log = Auditoria(
+                usuario_id=current_user.id if current_user.is_authenticated else 1,
+                tabla='facturas',
+                registro_id=nueva_factura.id,
+                accion='insertar'
+            )
+            db.session.add(audit_log)
 
             db.session.commit()
             flash('Venta registrada exitosamente.', 'success')
@@ -298,31 +303,23 @@ def return_sale(id):
             monto_linea = (Decimal(str(detalle.precio_unitario)) * detalle.cantidad) - Decimal(str(detalle.descuento or '0.0'))
             
             # Recuperar Inventario de Moto
-            if detalle.motocicleta_id:
-                moto = db.session.get(Motocicletas, detalle.motocicleta_id)
-                if moto and moto.estado == 'vendida':
+            moto = detalle.producto.motocicleta if detalle.producto else None
+            if moto:
+                if moto.estado == 'vendida':
                     moto.estado = 'en inventario' # Recuperación
                     monto_devuelto += monto_linea
                 else:
-                    flash(f'La motocicleta VIN {moto.vin if moto else ""} ya fue devuelta o no es recuperable.', 'warning')
+                    flash(f'La motocicleta VIN {moto.vin} ya fue devuelta o no es recuperable.', 'warning')
                     continue
             else:
-                # Recuperar Productos regulares incrementando el stock
-                if detalle.producto_id:
-                    producto = db.session.get(Productos, detalle.producto_id)
-                    if producto and hasattr(producto, 'stock'):
-                        producto.stock += detalle.cantidad
-                
+                # Recuperar Productos regulares sumando el stock real
+                detalle.producto.stock += detalle.cantidad
+                if detalle.producto.stock > 0:
+                    detalle.producto.estado = 'disponible'
                 monto_devuelto += monto_linea
                 
         if monto_devuelto > 0:
-            # Compensar ITBIS proporcionalmente al cobrado originalmente
-            itbis_agregado = Decimal('0.0')
-            if factura.subtotal and factura.subtotal > 0:
-                proporcion_itbis = factura.itbis / factura.subtotal
-                itbis_agregado = monto_devuelto * proporcion_itbis
-            # Total que la empresa "debe devolver" o "deducir"
-            monto_total_devolucion = monto_devuelto + itbis_agregado
+            monto_total_devolucion = monto_devuelto
             
             nueva_devolucion = Devoluciones(
                 factura_id=factura.id,
@@ -376,17 +373,18 @@ def return_sale(id):
                 else:
                     factura.estado = 'dev. parcial'
                         
-            # Registrar reembolso financiero si el saldo de la devolución no se usó todo en la deuda
-            monto_a_reembolsar = monto_total_devolucion - saldo_deducido
-            if monto_a_reembolsar > 0:
-                from app.models.finance import MovimientosCaja
-                movimiento = MovimientosCaja(
-                    usuario_id=current_user.id if current_user.is_authenticated else 1,
-                    tipo_movimiento='egreso',
-                    monto=monto_a_reembolsar,
-                    concepto=f'Reembolso por devolución de Factura #{factura.id}'
-                )
-                db.session.add(movimiento)
+
+            
+            # Auditoría
+            from app.models.auth import Auditoria
+            from flask_login import current_user
+            audit_log = Auditoria(
+                usuario_id=current_user.id if current_user.is_authenticated else 1,
+                tabla='devoluciones',
+                registro_id=nueva_devolucion.id,
+                accion='insertar'
+            )
+            db.session.add(audit_log)
             
             db.session.commit()
             flash(f'Devolución de ${monto_total_devolucion:,.2f} procesada exitosamente.', 'success')

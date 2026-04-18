@@ -8,6 +8,24 @@
     </a>
 </div>
 
+<ul class="nav nav-tabs nav-fill mb-4 border-0 gap-2">
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'pendientes' %}active bg-primary text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('purchases.list_purchases', estado='pendientes') }}">
+            Pendientes / Pagadas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'anuladas' %}active bg-danger text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('purchases.list_purchases', estado='anuladas') }}">
+            Anuladas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'todas' %}active bg-dark text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('purchases.list_purchases', estado='todas') }}">
+            Historial Completo
+        </a>
+    </li>
+</ul>
+
 <!-- Tabla de Compras -->
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
@@ -19,6 +37,7 @@
                         <th>Fecha</th>
                         <th>Proveedor</th>
                         <th>Total</th>
+                        <th>Estado</th>
                         <th class="text-end pe-4">Acciones</th>
                     </tr>
                 </thead>
@@ -40,6 +59,19 @@
                         </td>
                         <td>
                             <strong class="text-success">${{ "{:,.2f}".format(compra.costo_total) }}</strong>
+                        </td>
+                        <td>
+                            {% if compra.estado == 'pagada' %}
+                                <span class="badge bg-success rounded-pill px-3">Pagada</span>
+                            {% elif compra.estado == 'parcial' %}
+                                <span class="badge bg-info text-dark rounded-pill px-3">Parcial</span>
+                            {% elif compra.estado == 'pendiente' %}
+                                <span class="badge bg-primary rounded-pill px-3">Pendiente</span>
+                            {% elif compra.estado == 'anulada' %}
+                                <span class="badge bg-danger rounded-pill px-3">Anulada</span>
+                            {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">{{ compra.estado|capitalize }}</span>
+                            {% endif %}
                         </td>
                         <td class="text-end pe-4">
                             <a href="{{ url_for('purchases.detail_purchase', id=compra.id) }}" class="btn btn-sm btn-outline-primary" data-bs-toggle="tooltip" title="Ver Detalles">

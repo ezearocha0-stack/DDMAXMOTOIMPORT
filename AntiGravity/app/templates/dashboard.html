@@ -5,16 +5,12 @@
     <h2 class="fw-bold mb-0">Dashboard</h2>
     <div class="d-flex flex-wrap gap-2">
         <a href="{{ url_for('sales.create_sale') }}" class="btn btn-primary shadow-sm"><i class="bi bi-cart-plus me-1"></i> Nueva Venta</a>
-        <a href="{{ url_for('clients.list_clients') }}" class="btn btn-info text-white shadow-sm"><i class="bi bi-people me-1"></i> Clientes</a>
-        <a href="{{ url_for('inventory.list_motorcycles') }}" class="btn btn-warning shadow-sm"><i class="bi bi-bicycle me-1"></i> Inventario</a>
-        <a href="{{ url_for('suppliers.list_suppliers') }}" class="btn btn-secondary shadow-sm"><i class="bi bi-truck me-1"></i> Proveedores</a>
-        <a href="{{ url_for('payments.create_payment') }}" class="btn btn-success shadow-sm"><i class="bi bi-cash-coin me-1"></i> Pagos</a>
     </div>
 </div>
 
 <div class="row g-4 mb-4">
     <!-- KPI Tarjeta 1: Ventas Hoy -->
-    <div class="col-12 col-sm-6 col-lg-3">
+    <div class="col-12 col-sm-6 col-lg-4">
         <div class="card border-0 shadow-sm h-100 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center">
@@ -33,7 +29,7 @@
     </div>
 
     <!-- KPI Tarjeta 2: Ventas Este Mes -->
-    <div class="col-12 col-sm-6 col-lg-3">
+    <div class="col-12 col-sm-6 col-lg-4">
         <div class="card border-0 shadow-sm h-100 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center">
@@ -52,13 +48,13 @@
     </div>
 
     <!-- KPI Tarjeta 3: Cuentas por Cobrar -->
-    <div class="col-12 col-sm-6 col-lg-3">
+    <div class="col-12 col-sm-6 col-lg-4">
         <div class="card border-0 shadow-sm h-100 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center">
                     <div class="flex-shrink-0 me-3">
-                        <div class="bg-danger bg-opacity-10 p-2 rounded">
-                            <i class="bi bi-wallet2 fs-3 text-danger"></i>
+                        <div class="bg-info bg-opacity-10 p-2 rounded">
+                            <i class="bi bi-wallet2 fs-3 text-info"></i>
                         </div>
                     </div>
                     <div>
@@ -70,19 +66,57 @@
         </div>
     </div>
 
-    <!-- KPI Tarjeta 4: Inventario -->
-    <div class="col-12 col-sm-6 col-lg-3">
+    <!-- KPI Tarjeta 4: Cuentas por Pagar -->
+    <div class="col-12 col-sm-6 col-lg-4">
         <div class="card border-0 shadow-sm h-100 bg-white">
             <div class="card-body p-3">
                 <div class="d-flex align-items-center">
                     <div class="flex-shrink-0 me-3">
-                        <div class="bg-info bg-opacity-10 p-2 rounded">
-                            <i class="bi bi-box-seam fs-3 text-info"></i>
+                        <div class="bg-danger bg-opacity-10 p-2 rounded">
+                            <i class="bi bi-credit-card fs-3 text-danger"></i>
                         </div>
                     </div>
                     <div>
-                        <h6 class="card-title text-muted mb-1 text-uppercase text-xs fw-semibold">Prod. en Inventario</h6>
-                        <h4 class="mb-0 fw-bold text-dark">{{ stats.items_inventario }}</h4>
+                        <h6 class="card-title text-muted mb-1 text-uppercase text-xs fw-semibold">Cuentas por Pagar</h6>
+                        <h4 class="mb-0 fw-bold text-dark">${{ "{:,.2f}".format(stats.cuentas_pagar_total) }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Tarjeta 5: Motocicletas -->
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-warning bg-opacity-10 p-2 rounded">
+                            <i class="bi bi-bicycle fs-3 text-warning"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h6 class="card-title text-muted mb-1 text-uppercase text-xs fw-semibold">Motos Inventario</h6>
+                        <h4 class="mb-0 fw-bold text-dark">{{ stats.motos_inventario }} <span class="fs-6 text-muted fw-normal">und.</span></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Tarjeta 6: Productos Generales -->
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card border-0 shadow-sm h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-secondary bg-opacity-10 p-2 rounded">
+                            <i class="bi bi-box-seam fs-3 text-secondary"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h6 class="card-title text-muted mb-1 text-uppercase text-xs fw-semibold">Catálogo Productos</h6>
+                        <h4 class="mb-0 fw-bold text-dark">{{ stats.items_inventario }} <span class="fs-6 text-muted fw-normal">cats.</span></h4>
                     </div>
                 </div>
             </div>
@@ -95,8 +129,8 @@
     <div class="col-12">
         <div class="card border-0 shadow-sm border-start border-danger border-4">
             <div class="card-header bg-white border-bottom-0 pt-3 pb-0 d-flex justify-content-between align-items-center">
-                <h5 class="fw-bold text-danger mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Alerta de Bajo Stock (<= 2)</h5>
-                <a href="{{ url_for('inventory.list_motorcycles') }}" class="btn btn-sm btn-outline-danger">Ver Inventario</a>
+                <h5 class="fw-bold text-danger mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Alerta de Productos Agotados</h5>
+                <a href="{{ url_for('inventory.list_products') }}" class="btn btn-sm btn-outline-danger">Ver Inventario</a>
             </div>
             <div class="card-body pt-2 pb-3">
                 {% if stats.baja_existencia %}
@@ -106,7 +140,7 @@
                             <tr>
                                 <th class="border-0">Producto</th>
                                 <th class="border-0 text-center">Categoría</th>
-                                <th class="border-0 text-end">Stock Actual</th>
+                                <th class="border-0 text-end">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -115,8 +149,8 @@
                                 <td class="fw-semibold">{{ p.nombre }}</td>
                                 <td class="text-center text-secondary small">{{ p.categoria.nombre }}</td>
                                 <td class="text-end">
-                                    <span class="badge {% if p.stock == 0 %}bg-danger{% else %}bg-warning text-dark{% endif %} rounded-pill px-2">
-                                        {{ p.stock }} uni.
+                                    <span class="badge bg-danger rounded-pill px-2">
+                                        AGOTADO
                                     </span>
                                 </td>
                             </tr>
@@ -128,7 +162,7 @@
                 <div class="text-center py-3 text-muted">
                     <i class="bi bi-check-circle fs-3 text-success d-block mb-2 opacity-75"></i>
                     <p class="mb-0 fw-semibold">Inventario saludable</p>
-                    <small>No hay productos con bajo stock.</small>
+                    <small>No hay productos generales verificados como agotados.</small>
                 </div>
                 {% endif %}
             </div>
@@ -165,7 +199,7 @@
                         <p class="mb-1 text-secondary small">Cliente: {{ act.cliente.nombre }}</p>
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="fw-bold text-success">${{ "{:,.2f}".format(act.total) }}</span>
-                            {% if act.estado == 'completada' or act.estado == 'pagada' %}
+                            {% if act.estado == 'pagada' %}
                                 <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2">Pagada</span>
                             {% elif act.estado == 'anulada' %}
                                 <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2">Anulada</span>

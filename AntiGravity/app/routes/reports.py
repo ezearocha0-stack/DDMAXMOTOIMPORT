@@ -2,13 +2,14 @@ from flask import Blueprint, render_template, request
 from app.extensions import db
 from app.models.transactions import Facturas
 from flask_login import login_required
+from app.routes.auth import admin_required
 from datetime import datetime, date, timedelta
 from sqlalchemy import func
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 @reports_bp.route('/sales')
-@login_required
+@admin_required
 def sales_report():
     # Obtener filtros de fecha
     start_date_str = request.args.get('start_date')
@@ -45,7 +46,8 @@ def sales_report():
     hoy_fin = datetime.combine(today, datetime.max.time())
     ventas_hoy = db.session.query(func.sum(Facturas.total)).filter(
         Facturas.fecha >= hoy_inicio,
-        Facturas.fecha <= hoy_fin
+        Facturas.fecha <= hoy_fin,
+        Facturas.estado != 'anulada'
     ).scalar() or 0.0
 
     # Ventas del MES ACTUAL
@@ -61,11 +63,12 @@ def sales_report():
     
     ventas_mes = db.session.query(func.sum(Facturas.total)).filter(
         Facturas.fecha >= mes_inicio,
-        Facturas.fecha <= mes_fin
+        Facturas.fecha <= mes_fin,
+        Facturas.estado != 'anulada'
     ).scalar() or 0.0
 
-    # Total de Ventas en el rango seleccionado
-    total_filtrado = sum(f.total for f in facturas_filtradas)
+    # Total de Ventas en el rango seleccionado (excluyendo anuladas)
+    total_filtrado = sum(f.total for f in facturas_filtradas if f.estado != 'anulada')
     cantidad_facturas = len(facturas_filtradas)
 
     return render_template(
@@ -80,19 +83,24 @@ def sales_report():
     )
 
 @reports_bp.route('/inventory')
-@login_required
+@admin_required
 def inventory_report():
     from app.models.entities import Productos
     
     # Solo traemos los disponibles
     productos = Productos.query.filter_by(estado='disponible').all()
     
-    # Calcular el valor para cada producto y ordenar
+    # Calcular el valor por el precio de venta unitario (ya que no rastreamos stock físico)
     inventario_valorado = []
     total_inventario = 0.0
     
     for p in productos:
-        valor_total = float(p.stock) * float(p.costo)
+        try:
+            # Evaluamos 1 unidad por defecto para Productos Generales disponibles
+            valor_total = float(p.precio) * 1.0 
+        except Exception:
+            valor_total = 0.0
+
         inventario_valorado.append({
             'producto': p,
             'valor_total': valor_total

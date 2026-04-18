@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">
+        <a href="{{ url_for('inventory.list_products') }}" class="text-decoration-none text-muted me-2"><i class="bi bi-arrow-left"></i></a>
+        {{ 'Editar' if producto else 'Registrar' }} Producto General
+    </h2>
+</div>
+
+<div class="card shadow-sm border-0 max-w-800 mx-auto">
+    <div class="card-body p-4">
+        <form method="POST">
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <label for="nombre" class="form-label text-muted small fw-bold">Nombre del Producto <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" value="{{ producto.nombre if producto else '' }}" required>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="categoria_id" class="form-label text-muted small fw-bold">Categoría <span class="text-danger">*</span></label>
+                    <select class="form-select" id="categoria_id" name="categoria_id" required>
+                        <option value="" disabled {% if not producto %}selected{% endif %}>Seleccione...</option>
+                        {% for cat in categorias %}
+                            <option value="{{ cat.id }}" {% if producto and producto.categoria_id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="precio" class="form-label text-muted small fw-bold">Precio de Venta Base <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" class="form-control" id="precio" name="precio" value="{{ producto.precio if producto else '0.00' }}" required>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="stock" class="form-label text-muted small fw-bold">Stock Físico</label>
+                    <input type="number" class="form-control" id="stock" name="stock" value="{{ producto.stock if producto else '0' }}" min="0" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">Estado (Auto)</label>
+                    <input type="text" class="form-control bg-light" value="{{ producto.estado|title if producto else 'Auto-asignado' }}" readonly>
+                </div>
+            </div>
+
+            <hr class="my-4 text-muted">
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('inventory.list_products') }}" class="btn btn-light border shadow-sm">Cancelar</a>
+                <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                    <i class="bi bi-save me-2"></i> {{ 'Actualizar Prod.' if producto else 'Guardar Producto' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

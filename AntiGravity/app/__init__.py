@@ -53,4 +53,8 @@ def create_app(config_class=Config):
             if not current_user.is_authenticated:
                 return redirect(url_for('auth.login', next=request.url))
 
+    # Registrar el helper de permisos global para plantillas
+    from app.routes.auth import has_permission
+    app.jinja_env.globals.update(has_permission=has_permission)
+
     return app

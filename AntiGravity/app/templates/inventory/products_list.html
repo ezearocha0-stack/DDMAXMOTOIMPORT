@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">Inventario de Productos Generales</h2>
+    <a href="{{ url_for('inventory.create_product') }}" class="btn btn-primary shadow-sm">
+        <i class="bi bi-plus-circle me-2"></i> Nuevo Producto
+    </a>
+</div>
+
+<ul class="nav nav-tabs nav-fill mb-4 border-0 gap-2">
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'disponibles' %}active bg-primary text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('inventory.list_products', estado='disponibles', search=search) }}">
+            Disponibles
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'agotados' %}active bg-danger text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('inventory.list_products', estado='agotados', search=search) }}">
+            Agotados
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'todos' %}active bg-dark text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('inventory.list_products', estado='todos', search=search) }}">
+            Todos
+        </a>
+    </li>
+</ul>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+        <form method="GET" action="{{ url_for('inventory.list_products') }}" class="mb-4">
+            <div class="input-group w-50">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control border-start-0" name="search" placeholder="Buscar por nombre..." value="{{ search }}">
+                <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+                {% if search %}
+                    <a href="{{ url_for('inventory.list_products') }}" class="btn btn-outline-danger">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Precio</th>
+                        <th class="text-center">Stock</th>
+                        <th>Creado</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="text-muted fw-medium">#{{ p.id }}</td>
+                        <td class="fw-bold">{{ p.nombre }}</td>
+                        <td><span class="badge bg-secondary">{{ p.categoria.nombre if p.categoria else 'N/A' }}</span></td>
+                        <td>${{ "{:,.2f}".format(p.precio) }}</td>
+                        <td class="text-center fw-bold fs-5 text-primary">{{ p.stock }}</td>
+                        <td class="text-muted small">{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else 'N/A' }}</td>
+                        <td>
+                            <span class="badge {% if p.estado == 'disponible' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ p.estado|title }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('inventory.detail_product', id=p.id) }}" class="btn btn-outline-info" title="Ver Detalles">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('inventory.edit_product', id=p.id) }}" class="btn btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ p.id }}" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Delete Modal -->
+                    <div class="modal fade" id="deleteModal{{ p.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow">
+                                <div class="modal-header bg-danger text-white border-0">
+                                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body p-4 text-center">
+                                    <i class="bi bi-exclamation-triangle-fill text-danger display-1 mb-3"></i>
+                                    <h5>¿Está seguro que desea eliminar este producto?</h5>
+                                    <p class="text-muted"><strong>{{ p.nombre }}</strong></p>
+                                    <p class="small text-danger">Esta acción no se puede deshacer y puede fallar si existen facturas asociadas a este producto.</p>
+                                </div>
+                                <div class="modal-footer bg-light border-0">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <form action="{{ url_for('inventory.delete_product', id=p.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-danger px-4">Eliminar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            No hay productos generales registrados o que coincidan con la búsqueda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

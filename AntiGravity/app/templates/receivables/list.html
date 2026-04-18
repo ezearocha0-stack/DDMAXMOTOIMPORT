@@ -4,6 +4,21 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-wallet2 text-danger me-2"></i>Cuentas por Cobrar</h2>
 </div>
+
+<ul class="nav nav-tabs mb-4 border-bottom-0">
+  <li class="nav-item">
+    <a class="nav-link border-0 {% if estado == 'pendientes' %}active bg-white border-bottom-0 shadow-sm text-primary fw-bold rounded-top{% else %}text-muted{% endif %}" href="{{ url_for('accounts.list_accounts', estado='pendientes') }}">Pendientes</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link border-0 {% if estado == 'pagadas' %}active bg-white border-bottom-0 shadow-sm text-primary fw-bold rounded-top{% else %}text-muted{% endif %}" href="{{ url_for('accounts.list_accounts', estado='pagadas') }}">Pagadas</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link border-0 {% if estado == 'todas' %}active bg-white border-bottom-0 shadow-sm text-primary fw-bold rounded-top{% else %}text-muted{% endif %}" href="{{ url_for('accounts.list_accounts', estado='todas') }}">Todas</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link border-0 {% if estado == 'anuladas' %}active bg-white border-bottom-0 shadow-sm text-primary fw-bold rounded-top{% else %}text-muted{% endif %}" href="{{ url_for('accounts.list_accounts', estado='anuladas') }}">Anuladas</a>
+  </li>
+</ul>
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -21,11 +36,14 @@
                 </thead>
                 <tbody class="border-top-0">
                     {% for cuenta in cuentas %}
-                    <tr>
+                    <tr class="{% if cuenta.factura.estado == 'anulada' %}bg-light opacity-75{% endif %}">
                         <td class="ps-4 fw-bold">
-                            <a href="{{ url_for('accounts.detail_account', id=cuenta.id) }}" class="text-decoration-none">
+                            <a href="{{ url_for('accounts.detail_account', id=cuenta.id) }}" class="text-decoration-none {% if cuenta.factura.estado == 'anulada' %}text-muted{% endif %}">
                                 CTA-{{ "{:05d}".format(cuenta.id) }}
                             </a>
+                            {% if cuenta.factura.estado == 'anulada' %}
+                            <div class="badge bg-secondary ms-1">Anulada</div>
+                            {% endif %}
                         </td>
                         <td>
                             <span class="d-block fw-semibold text-dark">{{ cuenta.factura.cliente.nombre }}</span>
@@ -40,9 +58,19 @@
                             <a href="{{ url_for('accounts.detail_account', id=cuenta.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm mb-1 d-block w-100">
                                 <i class="bi bi-eye"></i> Detalle
                             </a>
+                            {% if cuenta.factura.estado == 'anulada' %}
+                            <div class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3 py-2 w-100 border border-secondary border-opacity-25">
+                                <i class="bi bi-x-circle"></i> Anulada
+                            </div>
+                            {% elif cuenta.estado != 'pagado' and cuenta.saldo > 0 %}
                             <a href="{{ url_for('payments.create_payment', cuenta_id=cuenta.id) }}" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm d-block w-100">
                                 <i class="bi bi-cash-coin"></i> Pago
                             </a>
+                            {% else %}
+                            <div class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 w-100 border border-success border-opacity-25">
+                                <i class="bi bi-check-all"></i> Pagada
+                            </div>
+                            {% endif %}
                         </td>
                     </tr>
                     {% else %}
@@ -50,7 +78,7 @@
                         <td colspan="7" class="text-center py-5 text-muted">
                             <i class="bi bi-check2-circle fs-1 text-success d-block mb-3 opacity-75"></i>
                             <h5 class="fw-bold">Carpeta Limpia</h5>
-                            <p class="mb-0">No hay cuentas por cobrar pendientes. ¡Excelente!</p>
+                            <p class="mb-0">No hay cuentas por cobrar en la vista actual.</p>
                         </td>
                     </tr>
                     {% endfor %}

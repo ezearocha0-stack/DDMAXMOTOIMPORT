@@ -42,10 +42,8 @@ class Productos(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias_producto.id'), nullable=False)
-    costo = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     precio = db.Column(db.Numeric(10, 2), nullable=False)
-    itbis = db.Column(db.Numeric(10, 2), default=0.00)
-    stock = db.Column(db.Integer, default=0, nullable=False)
+    stock = db.Column(db.Integer, default=0)
     estado = db.Column(db.String(20), default='disponible')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

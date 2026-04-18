@@ -4,6 +4,24 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-wallet-fill text-danger me-2"></i>Cuentas por Pagar</h2>
 </div>
+
+<ul class="nav nav-tabs nav-fill mb-4 border-0 gap-2">
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'pendientes' %}active bg-danger text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('payables.list_accounts', estado='pendientes') }}">
+            Pendientes / Parciales
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'pagadas' %}active bg-success text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('payables.list_accounts', estado='pagadas') }}">
+            Pagadas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'todas' %}active bg-dark text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('payables.list_accounts', estado='todas') }}">
+            Historial Completo
+        </a>
+    </li>
+</ul>
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -31,7 +49,7 @@
                             <span class="d-block fw-semibold text-dark">{{ cuenta.proveedor.nombre }}</span>
                             <span class="text-muted small">RNC: {{ cuenta.proveedor.rnc }}</span>
                         </td>
-                        <td class="text-muted"><i class="bi bi-calendar3 me-1"></i> {{ cuenta.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="text-muted"><i class="bi bi-calendar3 me-1"></i> {{ cuenta.created_at.strftime('%d/%m/%Y %H:%M') if cuenta.created_at else 'N/A' }}</td>
                         <td class="text-end text-muted">${{ "{:,.2f}".format(cuenta.monto_total) }}</td>
                         {% set pagado = cuenta.monto_total - cuenta.saldo %}
                         <td class="text-end text-success fw-medium">${{ "{:,.2f}".format(pagado) }}</td>
@@ -41,9 +59,11 @@
                                 <a href="{{ url_for('payables.detail_account', id=cuenta.id) }}" class="btn btn-sm btn-outline-primary shadow-sm" title="Ver Detalles">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a href="{{ url_for('payables.create_payment', cuenta_id=cuenta.id) }}" class="btn btn-sm btn-primary shadow-sm" title="Registrar Pago">
+                                {% if cuenta.estado != 'pagada' %}
+                                <a href="{{ url_for('payables.create_payment', cuenta_pagar_id=cuenta.id) }}" class="btn btn-sm btn-primary shadow-sm" title="Registrar Pago">
                                     <i class="bi bi-cash-coin"></i> Pago
                                 </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -52,7 +72,7 @@
                         <td colspan="7" class="text-center py-5 text-muted">
                             <i class="bi bi-check2-circle fs-1 text-success d-block mb-3 opacity-75"></i>
                             <h5 class="fw-bold">Carpeta Limpia</h5>
-                            <p class="mb-0">No hay cuentas por pagar pendientes. ¡Excelente!</p>
+                            <p class="mb-0">No hay cuentas. ¡Excelente!</p>
                         </td>
                     </tr>
                     {% endfor %}

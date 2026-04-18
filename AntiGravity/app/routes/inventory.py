@@ -3,6 +3,8 @@ from app.extensions import db
 from app.models.entities import Motocicletas, Productos, CategoriasProducto
 from sqlalchemy import or_
 from decimal import Decimal
+from sqlalchemy.orm import joinedload
+from app.routes.auth import admin_required
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventory')
 
@@ -25,7 +27,7 @@ def list_motorcycles():
             Motocicletas.vin.ilike(f'%{search}%')
         ))
     
-    motocicletas = query.order_by(Motocicletas.id.desc()).all()
+    motocicletas = query.options(joinedload(Motocicletas.producto)).order_by(Motocicletas.id.desc()).all()
     return render_template('inventory/list.html', motocicletas=motocicletas, search=search)
 
 @inventory_bp.route('/create', methods=['GET', 'POST'])
@@ -37,36 +39,20 @@ def create_motorcycle():
         color = request.form.get('color')
         tipo_motor = request.form.get('tipo_motor')
         vin = request.form.get('vin')
-        costo = request.form.get('costo')
-        ganancia = request.form.get('ganancia')
-        itbis_porcentaje = request.form.get('itbis_porcentaje', '0')
+        precio_raw = request.form.get('precio', '').strip()
         estado = request.form.get('estado', 'en inventario')
-
-        if not marca or not modelo or not vin or not ganancia or not costo:
-            flash('Marca, Modelo, VIN, Costo y Ganancia son obligatorios.', 'danger')
+        
+        if not marca or not modelo or not vin or not precio_raw:
+            flash('Marca, Modelo, VIN y Precio son obligatorios.', 'danger')
             return redirect(url_for('inventory.create_motorcycle'))
 
-        # Verificar si existe el VIN
-        existing = Motocicletas.query.filter_by(vin=vin).first()
-        if existing:
-            flash(f'Ya existe una motocicleta con el VIN {vin}.', 'danger')
-            return redirect(url_for('inventory.create_motorcycle'))
-
+        # limpiar formato
+        precio_limpio = precio_raw.replace('$', '').replace(',', '')
+        
         try:
-            costo_val = Decimal(costo)
-            ganancia_val = Decimal(ganancia)
-            porcentaje_val = Decimal(itbis_porcentaje)
-            
-            # 1. precio base de venta = precio de compra + ganancia deseada
-            precio_base = costo_val + ganancia_val
-            
-            # 2. monto ITBIS = precio base de venta * (ITBIS / 100)
-            itbis_val = precio_base * (porcentaje_val / Decimal('100.0'))
-            
-            # 3. precio final de venta (El que usará ventas)
-            precio_final = precio_base + itbis_val
+            precio_final = Decimal(precio_limpio)
         except Exception:
-            flash('Costo, Ganancia e ITBIS deben ser números válidos.', 'danger')
+            flash('Precio final debe ser un número válido.', 'danger')
             return redirect(url_for('inventory.create_motorcycle'))
 
         categoria = _get_or_create_motorcycle_category()
@@ -76,9 +62,7 @@ def create_motorcycle():
             producto = Productos(
                 nombre=f"{marca} {modelo} ({año})",
                 categoria_id=categoria.id,
-                costo=costo_val,
                 precio=precio_final,
-                itbis=itbis_val,
                 estado='disponible'
             )
             db.session.add(producto)
@@ -128,9 +112,7 @@ def edit_motorcycle(id):
         color = request.form.get('color')
         tipo_motor = request.form.get('tipo_motor')
         nuevo_vin = request.form.get('vin')
-        costo = request.form.get('costo')
-        ganancia = request.form.get('ganancia')
-        itbis_porcentaje = request.form.get('itbis_porcentaje', '0')
+        precio_raw = request.form.get('precio', '').strip()
         estado = request.form.get('estado')
 
         if nuevo_vin != motocicleta.vin:
@@ -139,21 +121,15 @@ def edit_motorcycle(id):
                 flash(f'Ya existe otra motocicleta con el VIN {nuevo_vin}.', 'danger')
                 return redirect(url_for('inventory.edit_motorcycle', id=id))
         
+        if not precio_raw:
+            flash('El precio es requerido', 'danger')
+            return redirect(url_for('inventory.edit_motorcycle', id=id))
+            
+        precio_limpio = precio_raw.replace('$', '').replace(',', '')
         try:
-            costo_val = Decimal(costo) if costo else Decimal('0.0')
-            ganancia_val = Decimal(ganancia)
-            porcentaje_val = Decimal(itbis_porcentaje)
-            
-            # 1. precio base de venta = precio de compra + ganancia deseada
-            precio_base = costo_val + ganancia_val
-            
-            # 2. monto ITBIS = precio base de venta * (ITBIS / 100)
-            itbis_val = precio_base * (porcentaje_val / Decimal('100.0'))
-            
-            # 3. precio final de venta (El que usará ventas)
-            precio_final = precio_base + itbis_val
+            precio_final = Decimal(precio_limpio)
         except Exception:
-            flash('Costo, Ganancia e ITBIS deben ser números válidos.', 'danger')
+            flash('Precio final debe ser un número válido.', 'danger')
             return redirect(url_for('inventory.edit_motorcycle', id=id))
 
         try:
@@ -176,9 +152,7 @@ def edit_motorcycle(id):
             # Actualizar Producto asociado
             if motocicleta.producto:
                 motocicleta.producto.nombre = f"{marca} {modelo} ({año})"
-                motocicleta.producto.costo = costo_val
                 motocicleta.producto.precio = precio_final
-                motocicleta.producto.itbis = itbis_val
                 
                 # Sincronizar estado del producto y la motocicleta de forma básica
                 if estado == 'vendida':
@@ -196,6 +170,7 @@ def edit_motorcycle(id):
     return render_template('inventory/form.html', motocicleta=motocicleta)
 
 @inventory_bp.route('/delete/<int:id>', methods=['POST'])
+@admin_required
 def delete_motorcycle(id):
     motocicleta = db.session.get(Motocicletas, id)
     if not motocicleta:
@@ -226,3 +201,128 @@ def detail_motorcycle(id):
         return redirect(url_for('inventory.list_motorcycles'))
         
     return render_template('inventory/detail.html', motocicleta=motocicleta)
+
+# --- GENERAL PRODUCTS ROUTES ---
+
+@inventory_bp.route('/products')
+def list_products():
+    search = request.args.get('search', '')
+    estado = request.args.get('estado', 'disponibles')
+    
+    query = Productos.query.outerjoin(Motocicletas).filter(Motocicletas.id == None)
+    
+    if estado == 'disponibles':
+        query = query.filter(Productos.estado == 'disponible')
+    elif estado == 'agotados':
+        query = query.filter(Productos.estado == 'agotado')
+    
+    if search:
+        query = query.filter(Productos.nombre.ilike(f'%{search}%'))
+        
+    productos = query.options(joinedload(Productos.categoria)).order_by(Productos.id.desc()).all()
+    return render_template('inventory/products_list.html', productos=productos, search=search, estado_actual=estado)
+
+@inventory_bp.route('/products/create', methods=['GET', 'POST'])
+def create_product():
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        categoria_id = request.form.get('categoria_id')
+        costo = request.form.get('costo')
+        precio_raw = request.form.get('precio', '').strip()
+        itbis = request.form.get('itbis', '0')
+        stock = request.form.get('stock', '0')
+        estado = request.form.get('estado', 'disponible')
+
+        if not nombre or not categoria_id or not precio_raw:
+            flash('Nombre, Categoría y Precio son obligatorios.', 'danger')
+            return redirect(url_for('inventory.create_product'))
+
+        precio_limpio = precio_raw.replace('$', '').replace(',', '')
+        try:
+            precio_val = Decimal(precio_limpio)
+            stock_val = int(stock)
+            estado_calc = 'disponible' if stock_val > 0 else 'agotado'
+                
+            producto = Productos(
+                nombre=nombre,
+                categoria_id=int(categoria_id),
+                precio=precio_val,
+                stock=stock_val,
+                estado=estado_calc
+            )
+            db.session.add(producto)
+            db.session.commit()
+            
+            flash('Producto general agregado al inventario exitosamente.', 'success')
+            return redirect(url_for('inventory.list_products'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear el producto (Verifique que el precio sea numérico): {str(e)}', 'danger')
+
+    categorias = CategoriasProducto.query.all()
+    return render_template('inventory/products_form.html', producto=None, categorias=categorias)
+
+@inventory_bp.route('/products/edit/<int:id>', methods=['GET', 'POST'])
+def edit_product(id):
+    producto = db.session.get(Productos, id)
+    if not producto or producto.motocicleta:
+        flash('Producto general no encontrado.', 'danger')
+        return redirect(url_for('inventory.list_products'))
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        categoria_id = request.form.get('categoria_id')
+        costo = request.form.get('costo')
+        precio_raw = request.form.get('precio', '').strip()
+        itbis = request.form.get('itbis', '0')
+        stock = request.form.get('stock', '0')
+        estado = request.form.get('estado')
+        
+        
+        if not precio_raw:
+            flash('El precio es requerido', 'danger')
+            return redirect(url_for('inventory.list_products'))
+            
+        precio_limpio = precio_raw.replace('$', '').replace(',', '')
+        try:
+            producto.nombre = nombre
+            producto.categoria_id = int(categoria_id)
+            producto.precio = Decimal(precio_limpio)
+            producto.stock = int(stock)
+            producto.estado = 'disponible' if producto.stock > 0 else 'agotado'
+            db.session.commit()
+            flash('Producto actualizado exitosamente.', 'success')
+            return redirect(url_for('inventory.list_products'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar el producto (Verifique que el precio sea numérico): {str(e)}', 'danger')
+
+    categorias = CategoriasProducto.query.all()
+    return render_template('inventory/products_form.html', producto=producto, categorias=categorias)
+
+@inventory_bp.route('/products/delete/<int:id>', methods=['POST'])
+@admin_required
+def delete_product(id):
+    producto = db.session.get(Productos, id)
+    if not producto or producto.motocicleta:
+        flash('Producto general no encontrado.', 'danger')
+        return redirect(url_for('inventory.list_products'))
+        
+    try:
+        db.session.delete(producto)
+        db.session.commit()
+        flash('Producto general eliminado.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'No se puede eliminar el producto. Es posible que esté asociado a ventas o facturas.', 'danger')
+
+    return redirect(url_for('inventory.list_products'))
+
+@inventory_bp.route('/products/detail/<int:id>')
+def detail_product(id):
+    producto = db.session.get(Productos, id)
+    if not producto or producto.motocicleta:
+        flash('Producto no encontrado.', 'danger')
+        return redirect(url_for('inventory.list_products'))
+        
+    return render_template('inventory/products_detail.html', producto=producto)

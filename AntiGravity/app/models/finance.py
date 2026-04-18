@@ -36,16 +36,7 @@ class Pagos(db.Model):
     
     usuario = db.relationship('Usuarios')
 
-class MovimientosCaja(db.Model):
-    __tablename__ = 'movimientos_caja'
-    id = db.Column(db.Integer, primary_key=True)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
-    tipo_movimiento = db.Column(db.String(20), nullable=False) # 'ingreso', 'egreso'
-    monto = db.Column(db.Numeric(12, 2), nullable=False)
-    concepto = db.Column(db.String(255), nullable=False)
-    fecha = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    usuario = db.relationship('Usuarios')
+
 
 class CuentasPorPagar(db.Model):
     __tablename__ = 'cuentas_por_pagar'

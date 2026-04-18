@@ -4,14 +4,23 @@ from app.models.entities import Proveedores, Productos
 from app.models.transactions import Compras, DetalleCompra
 from datetime import datetime
 from decimal import Decimal
+from sqlalchemy.orm import joinedload
 from flask_login import current_user
 
 purchases_bp = Blueprint('purchases', __name__, url_prefix='/purchases')
 
 @purchases_bp.route('/')
 def list_purchases():
-    compras = Compras.query.order_by(Compras.fecha.desc()).all()
-    return render_template('purchases/list.html', compras=compras)
+    estado = request.args.get('estado', 'pendientes')
+    
+    query = Compras.query
+    if estado == 'pendientes':
+        query = query.filter(Compras.estado.in_(['pendiente', 'parcial', 'pagada']))
+    elif estado == 'anuladas':
+        query = query.filter(Compras.estado == 'anulada')
+        
+    compras = query.options(joinedload(Compras.proveedor)).order_by(Compras.fecha.desc()).all()
+    return render_template('purchases/list.html', compras=compras, estado_actual=estado)
 
 @purchases_bp.route('/create', methods=['GET', 'POST'])
 def create_purchase():
@@ -46,7 +55,7 @@ def create_purchase():
                 costo_total=0.0, # Se actualizará después de calcular los ítems
                 pago_inicial=pago_inicial,
                 metodo_pago='Efectivo', # Predeterminado por ahora
-                estado='activa'
+                estado='pendiente'
             )
             db.session.add(nueva_compra)
             db.session.flush() # Obtener el nuevo ID de compra
@@ -75,18 +84,12 @@ def create_purchase():
                 )
                 db.session.add(detalle)
                 
-                # Actualizar el stock del producto
                 producto = Productos.query.get(prod_id)
                 if producto:
-                    producto.stock += cant
-                    
-                    # Actualizar ITBIS del producto si se provee en la compra
-                    if itbis_unitarios and i < len(itbis_unitarios):
-                        try:
-                            itbis_u = Decimal(itbis_unitarios[i])
-                            producto.itbis = itbis_u
-                        except:
-                            pass
+                    if not producto.motocicleta:
+                        producto.stock += cant
+                        if producto.stock > 0:
+                            producto.estado = 'disponible'
             
             # Usar el total calculado para estar a salvo de la manipulación en el lado del cliente
             nueva_compra.costo_total = total_calculado
@@ -97,11 +100,11 @@ def create_purchase():
             elif pago_inicial > 0:
                 nueva_compra.estado = 'parcial'
             else:
-                nueva_compra.estado = 'activa'
+                nueva_compra.estado = 'pendiente'
             
             # Registrar cuenta por pagar si fue a crédito
             if tipo == 'credito':
-                from app.models.finance import CuentasPorPagar, MovimientosCaja
+                from app.models.finance import CuentasPorPagar
                 
                 # Validar pago inicial
                 if pago_inicial > total_calculado:
@@ -119,26 +122,46 @@ def create_purchase():
                     estado='pendiente' if saldo_restante == total_calculado else ('pagada' if saldo_restante <= 0 else 'parcial')
                 )
                 db.session.add(cxp)
-                
-                # Si hubo pago inicial, registrar egreso de caja
-                if pago_inicial > 0:
-                    movimiento = MovimientosCaja(
-                        usuario_id=current_user.id if current_user.is_authenticated else 1,
-                        tipo_movimiento='egreso',
-                        monto=pago_inicial,
-                        concepto=f'Pago inicial compra a crédito - Proveedor {proveedor_id} - REF #{nueva_compra.id}'
-                    )
-                    db.session.add(movimiento)
+                db.session.flush()
+
+                # Generar las cuotas automáticamente
+                if saldo_restante > 0:
+                    meses_credito_str = request.form.get('numero_cuotas', '1')
+                    try:
+                        meses_credito = int(meses_credito_str)
+                        if meses_credito < 1: meses_credito = 1
+                    except:
+                        meses_credito = 1
+
+                    from app.models.finance import CuotasPorPagar
                     
-            elif tipo == 'contado':
-                from app.models.finance import MovimientosCaja
-                movimiento = MovimientosCaja(
-                    usuario_id=current_user.id if current_user.is_authenticated else 1,
-                    tipo_movimiento='egreso',
-                    monto=total_calculado,
-                    concepto=f'Compra al contado - Proveedor {proveedor_id} - REF #{nueva_compra.id}'
-                )
-                db.session.add(movimiento)
+                    monto_cuota = saldo_restante / Decimal(str(meses_credito))
+                    monto_cuota = monto_cuota.quantize(Decimal('0.01'))
+                    
+                    from calendar import monthrange
+                    def add_months(sourcedate, months):
+                        month = sourcedate.month - 1 + months
+                        year = sourcedate.year + month // 12
+                        month = month % 12 + 1
+                        day = min(sourcedate.day, monthrange(year, month)[1])
+                        return sourcedate.replace(year=year, month=month, day=day)
+                    
+                    fecha_base = datetime.now()
+                    
+                    for i in range(1, meses_credito + 1):
+                        fecha_ven = add_months(fecha_base, i)
+                        cuota = CuotasPorPagar(
+                            cuenta_pagar_id=cxp.id,
+                            numero_cuota=i,
+                            fecha_vencimiento=fecha_ven.date(),
+                            monto=monto_cuota,
+                            mora=0,
+                            monto_pagado=0,
+                            estado='pendiente'
+                        )
+                        db.session.add(cuota)
+                
+
             
             db.session.commit()
             flash('Compra registrada exitosamente.', 'success')

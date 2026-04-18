@@ -3,10 +3,11 @@ from flask_login import login_required
 
 from app.models.entities import Motocicletas, Clientes, Productos
 from app.models.transactions import Facturas
-from app.models.finance import CuentasPorCobrar
+from app.models.finance import CuentasPorCobrar, CuentasPorPagar
 from app.extensions import db
 from sqlalchemy import func
 from datetime import date, datetime, timedelta
+from sqlalchemy.orm import joinedload
 
 main_bp = Blueprint('main', __name__)
 
@@ -51,20 +52,28 @@ def dashboard():
     
     ventas_mes = float(ventas_mes_brutas) - float(devs_mes)
     
-    # 3. Pending receivables
-    cuentas_cobrar_query = db.session.query(func.sum(CuentasPorCobrar.saldo)).filter(
-        CuentasPorCobrar.estado == 'pendiente'
+    cuentas_cobrar_query = db.session.query(func.sum(CuentasPorCobrar.saldo)).join(Facturas).filter(
+        CuentasPorCobrar.estado.in_(['pendiente', 'parcial', 'atrasado', 'al_dia']),
+        Facturas.estado != 'anulada'
     ).scalar()
     cuentas_cobrar_total = cuentas_cobrar_query if cuentas_cobrar_query else 0.0
+    
+    # 3.b Pending payables (Cuentas por Pagar)
+    cuentas_pagar_query = db.session.query(func.sum(CuentasPorPagar.saldo)).filter(
+        CuentasPorPagar.estado != 'pagada'
+    ).scalar()
+    cuentas_pagar_total = cuentas_pagar_query if cuentas_pagar_query else 0.0
     
     # 4. Inventory items (count of products)
     items_inventario = Productos.query.filter_by(estado='disponible').count()
     
-    # 5. Low stock products (stock <= 2)
+    # 4.b Inventory items (count of motorcycles)
+    motos_inventario = Motocicletas.query.filter_by(estado='en inventario').count()
+    
+    # 5. Productos agotados (ya que no hay stock numerico directo)
     baja_existencia = Productos.query.filter(
-        Productos.estado == 'disponible',
-        Productos.stock <= 2
-    ).order_by(Productos.stock.asc()).all()
+        Productos.estado == 'agotado'
+    ).limit(5).all()
     
     # Extra: Total de clientes
     clientes_total = Clientes.query.count()
@@ -109,14 +118,16 @@ def dashboard():
         chart_data.append(float(ventas_mes_obj))
     
     # Últimas 5 facturas
-    actividades = Facturas.query.order_by(Facturas.fecha.desc()).limit(5).all()
+    actividades = Facturas.query.options(joinedload(Facturas.cliente)).order_by(Facturas.fecha.desc()).limit(5).all()
 
     stats = {
         'ventas_hoy': ventas_hoy,
         'ventas_mes': ventas_mes,
         'items_inventario': items_inventario,
+        'motos_inventario': motos_inventario,
         'clientes_total': clientes_total,
         'cuentas_cobrar_total': cuentas_cobrar_total,
+        'cuentas_pagar_total': cuentas_pagar_total,
         'baja_existencia': baja_existencia
     }
     

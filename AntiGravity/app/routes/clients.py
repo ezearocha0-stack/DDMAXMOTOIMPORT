@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.extensions import db
 from app.models.entities import Clientes
 from sqlalchemy import or_
+from app.routes.auth import admin_required
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 
@@ -107,6 +108,7 @@ def edit_client(id):
     return render_template('clients/form.html', cliente=cliente)
 
 @clients_bp.route('/delete/<int:id>', methods=['POST'])
+@admin_required
 def delete_client(id):
     cliente = db.session.get(Clientes, id)
     if not cliente:

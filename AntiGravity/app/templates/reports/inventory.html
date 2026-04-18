@@ -39,8 +39,8 @@
                     <tr>
                         <th class="ps-4 py-3 border-0">Producto</th>
                         <th class="py-3 border-0">Categoría</th>
-                        <th class="text-center py-3 border-0">Stock Actual</th>
-                        <th class="text-end py-3 border-0">Costo Unitario</th>
+                        <th class="text-center py-3 border-0">Cant.</th>
+                        <th class="text-end py-3 border-0">Precio Venta</th>
                         <th class="text-end pe-4 py-3 border-0">Valor Total</th>
                     </tr>
                 </thead>
@@ -59,11 +59,11 @@
                         </td>
                         <td class="text-center">
                             <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1 fw-bold fs-6">
-                                {{ item.producto.stock }}
+                                1
                             </span>
                         </td>
                         <td class="text-end text-muted fw-medium">
-                            ${{ "{:,.2f}".format(item.producto.costo) }}
+                            ${{ "{:,.2f}".format(item.producto.precio) }}
                         </td>
                         <td class="text-end pe-4 fw-black text-dark fs-6" style="background-color: rgba(0,0,0,0.02);">
                             ${{ "{:,.2f}".format(item.valor_total) }}

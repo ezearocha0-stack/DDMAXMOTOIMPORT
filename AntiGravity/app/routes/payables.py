@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from app.extensions import db
+from sqlalchemy.orm import joinedload
 from app.models.finance import CuentasPorPagar, PagosProveedor
 from flask_login import current_user, login_required
 from decimal import Decimal
@@ -9,8 +10,16 @@ payables_bp = Blueprint('payables', __name__, url_prefix='/payables')
 @payables_bp.route('/')
 @login_required
 def list_accounts():
-    cuentas = CuentasPorPagar.query.filter(CuentasPorPagar.saldo > 0).order_by(CuentasPorPagar.created_at.desc()).all()
-    return render_template('payables/list.html', cuentas=cuentas)
+    estado = request.args.get('estado', 'pendientes')
+    
+    if estado == 'pagadas':
+        cuentas = CuentasPorPagar.query.options(joinedload(CuentasPorPagar.proveedor), joinedload(CuentasPorPagar.compra)).filter(CuentasPorPagar.estado == 'pagada').order_by(CuentasPorPagar.created_at.desc()).all()
+    elif estado == 'todas':
+        cuentas = CuentasPorPagar.query.options(joinedload(CuentasPorPagar.proveedor), joinedload(CuentasPorPagar.compra)).order_by(CuentasPorPagar.created_at.desc()).all()
+    else:
+        cuentas = CuentasPorPagar.query.options(joinedload(CuentasPorPagar.proveedor), joinedload(CuentasPorPagar.compra)).filter(CuentasPorPagar.estado != 'pagada').order_by(CuentasPorPagar.created_at.desc()).all()
+        
+    return render_template('payables/list.html', cuentas=cuentas, estado_actual=estado)
 
 @payables_bp.route('/<int:id>')
 @login_required
@@ -72,16 +81,31 @@ def create_payment():
                 cuenta.estado = 'parcial'
                 if cuenta.compra:
                     cuenta.compra.estado = 'parcial'
+                    
+            # Distribuir pago en las cuotas pendientes
+            monto_restante = monto_pagado
+            from datetime import date
+            cuotas_pendientes = sorted([c for c in cuenta.cuotas if c.estado != 'pagada'], key=lambda x: x.fecha_vencimiento)
+            
+            for cuota in cuotas_pendientes:
+                if monto_restante <= 0:
+                    break
                 
-            # --- NUEVA LÓGICA: MovimientosCaja ---
-            from app.models.finance import MovimientosCaja
-            movimiento = MovimientosCaja(
-                usuario_id=current_user.id if current_user.is_authenticated else 1,
-                tipo_movimiento='egreso',
-                monto=monto_pagado,
-                concepto=f'Pago a CxP Compra #{cuenta.compra_id} - Proveedor {cuenta.proveedor_id}'
-            )
-            db.session.add(movimiento)
+                # Cuanto falta para saldar esta cuota
+                deuda_cuota = cuota.monto - (cuota.monto_pagado or 0)
+                
+                if monto_restante >= deuda_cuota:
+                    # Paga la cuota completa
+                    cuota.monto_pagado = (cuota.monto_pagado or 0) + deuda_cuota
+                    cuota.estado = 'pagada'
+                    monto_restante -= deuda_cuota
+                else:
+                    # Pago parcial de la cuota
+                    cuota.monto_pagado = (cuota.monto_pagado or 0) + monto_restante
+                    cuota.estado = 'parcial'
+                    monto_restante = Decimal('0.0')
+                
+
                 
             db.session.commit()
             flash(f'Pago de ${monto_pagado:,.2f} aplicado exitosamente a la cuenta del proveedor.', 'success')

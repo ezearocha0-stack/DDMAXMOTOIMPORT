@@ -64,6 +64,14 @@
                             <span class="input-group-text bg-white">Meses</span>
                         </div>
                     </div>
+                    
+                    <div class="col-md-6" id="tasa_interes_container" style="display: none;">
+                        <label for="tasa_interes_mensual" class="form-label text-muted small fw-bold text-uppercase">Tasa de Interés Mensual (%)</label>
+                        <div class="input-group">
+                            <input type="number" step="0.01" min="0" class="form-control" id="tasa_interes_mensual" name="tasa_interes_mensual" value="0.00" oninput="calculateTotals()">
+                            <span class="input-group-text bg-white">%</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -77,10 +85,7 @@
                         <span>Subtotal</span>
                         <span>$<span id="lbl_subtotal">0.00</span></span>
                     </div>
-                    <div class="d-none justify-content-between align-items-center mb-2 text-white-50">
-                        <span>ITBIS (Ya en el precio)</span>
-                        <span>+$<span id="lbl_itbis">0.00</span></span>
-                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom border-white border-opacity-25 text-white-50">
                         <span>Descuentos</span>
                         <span>-$<span id="lbl_descuento_total">0.00</span></span>
@@ -92,10 +97,18 @@
                     
                     <div id="credit_summary" class="mt-3 pt-3 border-top border-white border-opacity-25" style="display:none;">
                         <div class="d-flex justify-content-between align-items-center text-white-50 small mb-2">
-                            <span>Balance Restante:</span>
-                            <span class="fw-bold text-white">$<span id="lbl_balance_restante">0.00</span></span>
+                            <span>Saldo Base:</span>
+                            <span>$<span id="lbl_saldo_base">0.00</span></span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center text-warning small fw-bold">
+                        <div class="d-flex justify-content-between align-items-center text-white-50 small mb-2" id="interes_row" style="display:none !important;">
+                            <span>Interés Total (<span id="lbl_tasa_resumen">0</span>%):</span>
+                            <span>+$<span id="lbl_interes_total">0.00</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-white-50 small mb-2">
+                            <span>Total Financiado:</span>
+                            <span class="fw-bold text-white">$<span id="lbl_total_financiado">0.00</span></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-warning small fw-bold mt-2">
                             <span>Cuota Mensual (Aprox):</span>
                             <span>$<span id="lbl_cuota_mensual">0.00</span></span>
                         </div>
@@ -180,7 +193,13 @@
 <script>
     const productosData = [
         {% for p in productos %}
-            { id: {{ p.id }}, moto_id: "{{ p.moto_id }}", tipo: "{{ p.tipo }}", nombre: "{{ p.nombre }}", precio: {{ p.precio }} },
+            { 
+                id: {{ p.id|tojson }}, 
+                moto_id: {{ p.moto_id|tojson }}, 
+                tipo: {{ p.tipo|tojson }}, 
+                nombre: {{ p.nombre|tojson }}, 
+                precio: {{ p.precio|float|tojson }} 
+            },
         {% endfor %}
     ];
 
@@ -188,18 +207,22 @@
         const tipoSelect = document.getElementById('tipo');
         const container = document.getElementById('pago_inicial_container');
         const mesesContainer = document.getElementById('meses_credito_container');
+        const tasaContainer = document.getElementById('tasa_interes_container');
         const summary = document.getElementById('credit_summary');
         
         if (tipoSelect.value === 'credito') {
             container.style.display = 'block';
             mesesContainer.style.display = 'block';
+            tasaContainer.style.display = 'block';
             summary.style.display = 'block';
         } else {
             container.style.display = 'none';
             mesesContainer.style.display = 'none';
+            tasaContainer.style.display = 'none';
             summary.style.display = 'none';
             document.getElementById('pago_inicial').value = '0.00';
             document.getElementById('meses_credito').value = '1';
+            document.getElementById('tasa_interes_mensual').value = '0.00';
         }
         calculateTotals();
     }
@@ -231,21 +254,40 @@
         // Actualizaciones de pantalla
         const fmt = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('lbl_subtotal').textContent = fmt.format(subtotalGlobal);
-        // lbl_itbis oculto
+
         document.getElementById('lbl_descuento_total').textContent = fmt.format(totalDiscount);
         document.getElementById('lbl_total_final').textContent = fmt.format(totalFinal);
 
         // Actualización de balance de crédito
         if (document.getElementById('tipo').value === 'credito') {
             const pagoInicial = parseFloat(document.getElementById('pago_inicial').value) || 0;
-            const balance = totalFinal - pagoInicial;
-            const finalBalance = balance > 0 ? balance : 0;
-            document.getElementById('lbl_balance_restante').textContent = fmt.format(finalBalance);
+            const saldoBase = totalFinal - pagoInicial;
+            const finalSaldoBase = saldoBase > 0 ? saldoBase : 0;
             
+            const tasaInteres = parseFloat(document.getElementById('tasa_interes_mensual').value) || 0;
             const meses = parseInt(document.getElementById('meses_credito').value) || 1;
             const safeMeses = meses > 0 ? meses : 1;
-            const cuotaMensual = finalBalance / safeMeses;
+            
+            let interesTotal = 0;
+            if (finalSaldoBase > 0 && tasaInteres > 0) {
+                interesTotal = finalSaldoBase * (tasaInteres / 100) * safeMeses;
+            }
+            
+            const totalFinanciado = finalSaldoBase + interesTotal;
+            const cuotaMensual = totalFinanciado / safeMeses;
+            
+            document.getElementById('lbl_saldo_base').textContent = fmt.format(finalSaldoBase);
+            document.getElementById('lbl_interes_total').textContent = fmt.format(interesTotal);
+            document.getElementById('lbl_total_financiado').textContent = fmt.format(totalFinanciado);
             document.getElementById('lbl_cuota_mensual').textContent = fmt.format(cuotaMensual);
+            
+            const trInteres = document.getElementById('interes_row');
+            if (tasaInteres > 0) {
+                trInteres.style.setProperty('display', 'flex', 'important');
+                document.getElementById('lbl_tasa_resumen').textContent = tasaInteres.toFixed(2);
+            } else {
+                trInteres.style.setProperty('display', 'none', 'important');
+            }
         }
 
         // Validación de acción
@@ -349,6 +391,21 @@
     }
 
     function confirmSave() {
+        // Eliminar filas vacías
+        document.querySelectorAll('#invoiceBody tr').forEach(row => {
+            const select = row.querySelector('select[name="producto_id[]"]');
+            if(select && !select.value) {
+                row.remove();
+            }
+        });
+        
+        calculateTotals();
+        
+        if(document.querySelectorAll('#invoiceBody tr').length === 0) {
+            alert("Debe agregar al menos un artículo válido.");
+            return;
+        }
+
         if(document.getElementById('invoiceForm').checkValidity()) {
             const myModal = new bootstrap.Modal(document.getElementById('confirmModal'));
             myModal.show();

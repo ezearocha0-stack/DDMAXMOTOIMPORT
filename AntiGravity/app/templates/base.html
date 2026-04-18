@@ -42,8 +42,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('inventory.') %}active{% endif %}" href="{{ url_for('inventory.list_motorcycles') }}">
-                            <i class="bi bi-box-seam me-2"></i> Inventario
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('inventory.') and 'product' not in request.endpoint %}active{% endif %}" href="{{ url_for('inventory.list_motorcycles') }}">
+                            <i class="bi bi-bicycle me-2"></i> Motocicletas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('inventory.') and 'product' in request.endpoint %}active{% endif %}" href="{{ url_for('inventory.list_products') }}">
+                            <i class="bi bi-box-seam me-2"></i> Prod. Generales
                         </a>
                     </li>
                     <li class="nav-item">
@@ -57,6 +62,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('payables.') %}active{% endif %}" href="{{ url_for('payables.list_accounts') }}">
+                            <i class="bi bi-wallet-fill me-2"></i> Cuentas por Pagar
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint and request.endpoint.startswith('sales.') %}active{% endif %}" href="{{ url_for('sales.list_sales') }}">
                             <i class="bi bi-cart3 me-2"></i> Ventas
                         </a>
@@ -66,6 +76,23 @@
                             <i class="bi bi-cash-coin me-2"></i> Cuentas por Cobrar
                         </a>
                     </li>
+                    
+                    {% if current_user.is_authenticated and current_user.rol.nombre|upper in ['ADMIN', 'ADMINISTRADOR'] %}
+                    <li class="nav-item mt-3">
+                        <span class="nav-link text-uppercase small fw-bold text-muted" style="letter-spacing: 1px;">Operaciones Admin</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('reports.') %}active{% endif %}" href="{{ url_for('reports.sales_report') }}">
+                            <i class="bi bi-graph-up-arrow me-2"></i> Reportes Financieros
+                        </a>
+                    </li>
+                    <!-- Ocultar o simular Gestión de Usuarios -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="alert('Módulo de usuarios en desarrollo'); return false;">
+                            <i class="bi bi-person-gear me-2"></i> Gestión Usuarios
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
 

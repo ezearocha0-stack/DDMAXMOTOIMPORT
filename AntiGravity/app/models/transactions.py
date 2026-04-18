@@ -10,7 +10,7 @@ class Compras(db.Model):
     costo_total = db.Column(db.Numeric(12, 2), nullable=False)
     pago_inicial = db.Column(db.Numeric(12, 2), default=0)
     metodo_pago = db.Column(db.String(50))
-    estado = db.Column(db.String(20), default='activa') # activa, anulada, pagada, parcial
+    estado = db.Column(db.String(20), default='pendiente') # pendiente, anulada, pagada, parcial
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     proveedor = db.relationship('Proveedores', backref='compras')
@@ -34,12 +34,11 @@ class Facturas(db.Model):
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     tipo = db.Column(db.String(20), nullable=False) # contado, credito
     subtotal = db.Column(db.Numeric(12, 2), nullable=False)
-    itbis = db.Column(db.Numeric(12, 2), default=0)
     descuento = db.Column(db.Numeric(12, 2), default=0)
     total = db.Column(db.Numeric(12, 2), nullable=False)
     pago_inicial = db.Column(db.Numeric(12, 2), default=0)
     metodo_pago = db.Column(db.String(50))
-    estado = db.Column(db.String(20), default='completada')
+    estado = db.Column(db.String(20), default='pagada')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     cliente = db.relationship('Clientes', backref='facturas')
@@ -52,13 +51,11 @@ class DetalleFactura(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     factura_id = db.Column(db.Integer, db.ForeignKey('facturas.id'), nullable=False)
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
-    motocicleta_id = db.Column(db.Integer, db.ForeignKey('motocicletas.id'), nullable=True)
     cantidad = db.Column(db.Integer, nullable=False)
     precio_unitario = db.Column(db.Numeric(10, 2), nullable=False)
     descuento = db.Column(db.Numeric(10, 2), default=0)
     
     producto = db.relationship('Productos')
-    motocicleta = db.relationship('Motocicletas')
 
 class Devoluciones(db.Model):
     __tablename__ = 'devoluciones'

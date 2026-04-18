@@ -72,18 +72,9 @@ def create_payment():
                 
                 # Sincronizar estado de la factura
                 if cuenta.factura:
-                    cuenta.factura.estado = 'completada'
+                    cuenta.factura.estado = 'pagada'
                 
-            # --- NUEVA LÓGICA: MovimientosCaja ---
-            from app.models.finance import MovimientosCaja
-            movimiento = MovimientosCaja(
-                usuario_id=current_user.id if current_user.is_authenticated else 1,
-                tipo_movimiento='ingreso',
-                monto=monto_pagado,
-                concepto=f'Abono a CxC Factura #{cuenta.factura_id}'
-            )
-            db.session.add(movimiento)
-                
+
             db.session.commit()
             flash(f'Pago de ${monto_pagado:,.2f} aplicado exitosamente a la cuenta.', 'success')
             return redirect(url_for('accounts.detail_account', id=cuenta.id))

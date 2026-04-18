@@ -8,6 +8,24 @@
     </a>
 </div>
 
+<ul class="nav nav-tabs nav-fill mb-4 border-0 gap-2">
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'pendientes' %}active bg-primary text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('sales.list_sales', estado='pendientes') }}">
+            Pendientes / Pagadas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'anuladas' %}active bg-danger text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('sales.list_sales', estado='anuladas') }}">
+            Anuladas
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link rounded-pill fw-bold border-0 shadow-sm {% if estado_actual == 'todas' %}active bg-dark text-white{% else %}bg-white text-muted{% endif %}" href="{{ url_for('sales.list_sales', estado='todas') }}">
+            Historial Completo
+        </a>
+    </li>
+</ul>
+
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -48,9 +66,7 @@
                             <strong class="text-primary">${{ "{:,.2f}".format(factura.total) }}</strong>
                         </td>
                         <td>
-                            {% if factura.estado == 'completada' %}
-                                <span class="badge bg-success rounded-pill px-3">Completada</span>
-                            {% elif factura.estado == 'pagada' %}
+                            {% if factura.estado == 'pagada' %}
                                 <span class="badge bg-success rounded-pill px-3">Pagada</span>
                             {% elif factura.estado == 'pendiente' %}
                                 <span class="badge bg-warning text-dark rounded-pill px-3">Pendiente</span>
